@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { getProfile, updateProfile, uploadProfileImage, type Profile, getStudies, getAllHighlights, type StudyHistory, type Highlight } from '@/lib/db';
 import Cropper, { type Point, type Area } from 'react-easy-crop';
 import { useRouter } from 'next/navigation';
+import { FeedbackModal } from './FeedbackModal';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -25,6 +26,7 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
   const [goals, setGoals] = useState('');
+  const [showFeedback, setShowFeedback] = useState(false);
   
   // PWA Install
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -421,13 +423,12 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 
                       <button 
                         onClick={() => {
-                          const msg = "Graça e Paz! Vim do app IA Biblia e gostaria de informar ";
-                          window.open(`https://wa.me/5562994581066?text=${encodeURIComponent(msg)}`, '_blank');
+                          setShowFeedback(true);
                         }}
                         className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-border hover:bg-secondary/50 transition-all"
                       >
                         <MessageSquare size={18} className="text-primary" />
-                        <span className="text-sm font-medium">Suporte / Reportar Bug</span>
+                        <span className="text-sm font-medium">Sugestões ou Bugs</span>
                       </button>
                       
                       <button 
@@ -503,6 +504,8 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
           </div>
         </div>
       )}
+      {/* Feedback Modal */}
+      <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
     </div>
   );
 }

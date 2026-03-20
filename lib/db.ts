@@ -710,16 +710,22 @@ export async function getProfile(): Promise<Profile | null> {
 
 export async function updateProfile(profile: Partial<Profile>) {
   const userId = await getUserId();
+  console.log('updateProfile called for userId:', userId, 'with profile:', profile);
   
   if (supabase) {
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .upsert({ 
           id: userId, 
           ...profile,
           updated_at: new Date().toISOString()
         });
+      if (error) {
+        console.error('Supabase updateProfile error:', error);
+      } else {
+        console.log('Supabase updateProfile success:', data);
+      }
     } catch (e) {
       console.error('Supabase error', e);
     }
