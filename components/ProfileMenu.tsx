@@ -38,19 +38,29 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 
   const loadData = async () => {
     setLoading(true);
-    const [p, s, h] = await Promise.all([
-      getProfile(),
-      getStudies(),
-      getAllHighlights()
-    ]);
-    setProfile(p);
-    if (p) {
-      setName(p.display_name);
-      setGoals(p.goals);
+    try {
+      const results = await Promise.allSettled([
+        getProfile(),
+        getStudies(),
+        getAllHighlights()
+      ]);
+      
+      const p = results[0].status === 'fulfilled' ? results[0].value : null;
+      const s = results[1].status === 'fulfilled' ? results[1].value : [];
+      const h = results[2].status === 'fulfilled' ? results[2].value : [];
+
+      setProfile(p);
+      if (p) {
+        setName(p.display_name);
+        setGoals(p.goals);
+      }
+      setStudies(s as StudyHistory[]);
+      setHighlights(h as (Highlight & { book_id: string; chapter: number })[]);
+    } catch (e) {
+      console.error('Failed to load profile data', e);
+    } finally {
+      setLoading(false);
     }
-    setStudies(s);
-    setHighlights(h);
-    setLoading(false);
   };
 
   const onCropComplete = (croppedArea: Area, croppedAreaPixels: Area) => {

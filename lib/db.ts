@@ -668,20 +668,26 @@ export async function getProfile(): Promise<Profile | null> {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
         
-      if (!error && data) return data;
+      if (data) return data;
       
-      // If not found, create a default profile
-      if (error && error.code === 'PGRST116') {
+      // If not found or error, try to create a default profile if logged in
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user && session.user.id === userId) {
         const defaultProfile = {
           id: userId,
-          display_name: '',
-          photo_url: null,
+          display_name: session.user.user_metadata?.full_name || '',
+          photo_url: session.user.user_metadata?.avatar_url || null,
           goals: await getGoals()
         };
-        await updateProfile(defaultProfile);
+        // Use a background update to not block
+        updateProfile(defaultProfile).catch(console.error);
         return defaultProfile;
+      }
+
+      if (error && error.code !== 'PGRST116') {
+        console.error('Supabase getProfile error:', error);
       }
     } catch (e) {
       console.error('Supabase error', e);
