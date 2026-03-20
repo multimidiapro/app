@@ -251,7 +251,7 @@ export default function Dashboard() {
             <span>Bíblia</span>
           </button>
 
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={() => setShowFeedback(true)}
               className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
@@ -341,7 +341,7 @@ export default function Dashboard() {
             </div>
 
             {/* Day Selector */}
-            <div className="flex justify-between items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+            <div className="flex justify-start items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
               {weekDays.map((dateStr) => {
                 const date = new Date(dateStr + 'T12:00:00');
                 const isToday = dateStr === todayStr;

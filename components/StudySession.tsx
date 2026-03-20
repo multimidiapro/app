@@ -172,22 +172,36 @@ export default function StudySession() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleShare = () => {
-    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(messages));
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = `${baseUrl}/study/${id}?share=${compressed}&action=copy`;
-    const shareText = `Confira meu estudo bíblico no IA Bíblia: ${url}\n\nCadastre-se para iniciar seus próprios estudos e acompanhar seu progresso bíblico! ✨`;
-    
-    if (navigator.share) {
-      navigator.share({
-        title: 'Meu Estudo Bíblico - IA Bíblia',
-        text: shareText,
-      }).catch(console.error);
-    } else {
-      navigator.clipboard.writeText(shareText).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
+  const handleShare = async () => {
+    setIsCopying(true);
+    try {
+      const title = history.find(h => h.id === id)?.title || 'Estudo Bíblico';
+      const dbMessages = messages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
+      const newId = await copyStudy(title, dbMessages);
+      
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const url = `${baseUrl}/study/${newId}`;
+      const shareText = `Confira meu estudo bíblico no IA Bíblia: ${url}\n\nCadastre-se para iniciar seus próprios estudos e acompanhar seu progresso bíblico! ✨`;
+      
+      if (navigator.share) {
+        navigator.share({
+          title: 'Meu Estudo Bíblico - IA Bíblia',
+          text: shareText,
+        }).catch(console.error);
+      } else {
+        navigator.clipboard.writeText(shareText).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        });
+      }
+    } catch (error) {
+      console.error('Failed to share study', error);
+      alert('Erro ao gerar link de compartilhamento. Tente novamente.');
+    } finally {
+      setIsCopying(false);
     }
   };
 
