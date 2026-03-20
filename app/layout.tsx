@@ -24,6 +24,14 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: 'IA Bíblia - Estudo Bíblico',
   description: 'Bíblia Online de Estudo Bíblico com Inteligência Artificial. A Bíblia explica a Bíblia.',
+  manifest: '/manifest.json',
+  themeColor: '#0ea5e9',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'IA Bíblia',
+  },
   openGraph: {
     title: 'IA Bíblia - Estudo Bíblico',
     description: 'Bíblia Online de Estudo Bíblico com Inteligência Artificial. A Bíblia explica a Bíblia.',
@@ -55,6 +63,21 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
               <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-blue-500/10 dark:bg-blue-600/10 rounded-full blur-[100px] opacity-30"></div>
             </div>
             {children}
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `
+                  if ('serviceWorker' in navigator) {
+                    window.addEventListener('load', function() {
+                      navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                      }, function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                      });
+                    });
+                  }
+                `,
+              }}
+            />
           </AuthProvider>
         </ThemeProvider>
       </body>

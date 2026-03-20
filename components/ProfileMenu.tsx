@@ -1,11 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare } from 'lucide-react';
+import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getProfile, updateProfile, uploadProfileImage, type Profile, getStudies, getAllHighlights, type StudyHistory, type Highlight } from '@/lib/db';
 import Cropper, { type Point, type Area } from 'react-easy-crop';
 import { useRouter } from 'next/navigation';
+
+interface BeforeInstallPromptEvent extends Event {
+  readonly platforms: string[];
+  readonly userChoice: Promise<{
+    outcome: 'accepted' | 'dismissed';
+    platform: string;
+  }>;
+  prompt(): Promise<void>;
+}
 
 export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { user, signOut } = useAuth();
@@ -17,6 +26,10 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
   const [name, setName] = useState('');
   const [goals, setGoals] = useState('');
   
+  // PWA Install
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [canInstall, setCanInstall] = useState(false);
+
   // Image upload & crop
   const [image, setImage] = useState<string | null>(null);
   const [crop, setCrop] = useState<Point>({ x: 0, y: 0 });
@@ -31,10 +44,34 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
   const [activeTab, setActiveTab] = useState<'profile' | 'studies' | 'highlights' | 'settings'>('profile');
 
   useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e as BeforeInstallPromptEvent);
+      setCanInstall(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isOpen && user) {
       loadData();
     }
   }, [isOpen, user]);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setCanInstall(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -372,6 +409,16 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                   <div className="flex flex-col gap-4 animate-in fade-in duration-300">
                     <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Configurações</h4>
                     <div className="flex flex-col gap-2">
+                      {canInstall && (
+                        <button 
+                          onClick={handleInstallApp}
+                          className="flex items-center gap-3 p-3 bg-primary/10 rounded-xl border border-primary/20 text-primary hover:bg-primary/20 transition-all"
+                        >
+                          <Download size={18} />
+                          <span className="text-sm font-medium">Instalar Aplicativo</span>
+                        </button>
+                      )}
+
                       <button 
                         onClick={() => {
                           const msg = "Graça e Paz! Vim do app IA Biblia e gostaria de informar ";
