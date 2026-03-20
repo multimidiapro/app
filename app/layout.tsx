@@ -27,6 +27,10 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   themeColor: '#0ea5e9',
   viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+  icons: {
+    icon: '/favicon.ico',
+    apple: 'https://picsum.photos/seed/bible-icon-192/192/192',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
