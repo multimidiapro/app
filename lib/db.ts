@@ -675,11 +675,14 @@ export async function getProfile(): Promise<Profile | null> {
       // If not found or error, try to create a default profile if logged in
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user && session.user.id === userId) {
+        // Get goals from localStorage directly to avoid recursion
+        const localGoals = typeof window !== 'undefined' ? localStorage.getItem('biblia_ai_goals') || '' : '';
+        
         const defaultProfile = {
           id: userId,
           display_name: session.user.user_metadata?.full_name || '',
           photo_url: session.user.user_metadata?.avatar_url || null,
-          goals: await getGoals()
+          goals: localGoals
         };
         // Use a background update to not block
         updateProfile(defaultProfile).catch(console.error);
@@ -757,8 +760,26 @@ export async function uploadProfileImage(file: File): Promise<string | null> {
 }
 
 export async function getGoals(): Promise<string> {
-  const profile = await getProfile();
-  return profile?.goals || '';
+  const userId = await getUserId();
+  
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('goals')
+        .eq('id', userId)
+        .maybeSingle();
+        
+      if (data) return data.goals;
+    } catch (e) {
+      console.error('Supabase error getting goals', e);
+    }
+  }
+  
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('biblia_ai_goals') || '';
+  }
+  return '';
 }
 
 export async function saveGoals(goals: string) {
@@ -811,14 +832,14 @@ export async function getVerseOfTheDayForDate(date: string): Promise<{ reference
   
   if (supabase) {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('verse_of_the_day')
         .select('reference, text, explanation')
         .eq('user_id', userId)
         .eq('date', date)
-        .single();
+        .maybeSingle();
         
-      if (!error && data) return data;
+      if (data) return data;
     } catch (e) {
       console.error('Supabase error', e);
     }
