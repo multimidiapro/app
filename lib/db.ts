@@ -657,6 +657,7 @@ export type Profile = {
   display_name: string;
   photo_url: string | null;
   goals: string;
+  is_contributor?: boolean;
 };
 
 export async function getProfile(): Promise<Profile | null> {
@@ -682,7 +683,8 @@ export async function getProfile(): Promise<Profile | null> {
           id: userId,
           display_name: session.user.user_metadata?.full_name || '',
           photo_url: session.user.user_metadata?.avatar_url || null,
-          goals: localGoals
+          goals: localGoals,
+          is_contributor: false
         };
         // Use a background update to not block
         updateProfile(defaultProfile).catch(console.error);
@@ -702,7 +704,8 @@ export async function getProfile(): Promise<Profile | null> {
       id: userId,
       display_name: localStorage.getItem('biblia_ai_name') || '',
       photo_url: localStorage.getItem('biblia_ai_photo') || null,
-      goals: localStorage.getItem('biblia_ai_goals') || ''
+      goals: localStorage.getItem('biblia_ai_goals') || '',
+      is_contributor: localStorage.getItem('biblia_ai_is_contributor') === 'true'
     };
   }
   return null;
@@ -735,6 +738,7 @@ export async function updateProfile(profile: Partial<Profile>) {
     if (profile.display_name !== undefined) localStorage.setItem('biblia_ai_name', profile.display_name);
     if (profile.photo_url !== undefined) localStorage.setItem('biblia_ai_photo', profile.photo_url || '');
     if (profile.goals !== undefined) localStorage.setItem('biblia_ai_goals', profile.goals);
+    if (profile.is_contributor !== undefined) localStorage.setItem('biblia_ai_is_contributor', String(profile.is_contributor));
   }
 }
 

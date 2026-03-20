@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download } from 'lucide-react';
+import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download, Crown } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getProfile, updateProfile, uploadProfileImage, type Profile, getStudies, getAllHighlights, type StudyHistory, type Highlight } from '@/lib/db';
 import Cropper, { type Point, type Area } from 'react-easy-crop';
@@ -227,7 +227,10 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                 </div>
                 
                 <div className="text-center">
-                  <h3 className="text-lg font-bold">{profile?.display_name || user?.email?.split('@')[0]}</h3>
+                  <h3 className="text-lg font-bold flex items-center justify-center gap-2">
+                    {profile?.display_name || user?.email?.split('@')[0]}
+                    {profile?.is_contributor && <Crown size={16} className="text-yellow-500" />}
+                  </h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
               </div>
