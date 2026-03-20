@@ -7,6 +7,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
+          console.log('Deleting cache:', cacheName);
           return caches.delete(cacheName);
         })
       );
@@ -15,7 +16,4 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-self.addEventListener('fetch', () => {
-  // No caching, just pass through
-  return;
-});
+// No fetch listener to avoid any interference

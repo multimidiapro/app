@@ -84,6 +84,14 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
                       });
                     });
                   }
+
+                  // Handle Next.js chunk load errors (404s for old builds)
+                  window.addEventListener('error', function(e) {
+                    if (e.message && (e.message.includes('Loading chunk') || e.message.includes('Loading CSS chunk'))) {
+                      console.warn('Chunk load error detected, forcing reload...', e.message);
+                      window.location.reload();
+                    }
+                  }, true);
                 `,
               }}
             />
