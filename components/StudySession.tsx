@@ -8,7 +8,7 @@ import LZString from 'lz-string';
 import { generateBibleStudy } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
-import { getStudies, deleteStudy, updateStudyTitle, getStudyMessages, saveStudyMessage, copyStudy, type StudyHistory } from '@/lib/db';
+import { getStudies, deleteStudy, updateStudyTitle, getStudyMessages, saveStudyMessage, copyStudy, getProfile, type StudyHistory, type Profile } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 
 type Message = {
@@ -32,6 +32,7 @@ export default function StudySession() {
   const [isSharedView, setIsSharedView] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [history, setHistory] = useState<StudyHistory[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [similarStudy, setSimilarStudy] = useState<StudyHistory | null>(null);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -101,7 +102,7 @@ export default function StudySession() {
       // Remove the last message from history since it's the prompt itself
       aiHistory.pop();
 
-      const responseText = await generateBibleStudy(text, aiHistory);
+      const responseText = await generateBibleStudy(text, aiHistory, profile ? { display_name: profile.display_name } : undefined);
       
       const aiMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: responseText };
       setMessages(prev => [...prev, aiMsg]);
@@ -142,6 +143,9 @@ export default function StudySession() {
     const loadStudy = async () => {
       const studies = await getStudies();
       setHistory(studies);
+      
+      const p = await getProfile();
+      setProfile(p);
       
       const studyMessages = await getStudyMessages(id);
       if (studyMessages.length > 0) {
@@ -507,6 +511,12 @@ export default function StudySession() {
                 <div className="markdown-body prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-serif prose-a:text-primary text-sm md:text-base">
                   <ReactMarkdown
                     components={{
+                      a: ({ ...props }) => (
+                        <a
+                          {...props}
+                          className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-sm text-sm font-medium no-underline my-1"
+                        />
+                      ),
                       strong: ({...props}) => <strong className="text-primary font-bold" {...props} />
                     }}
                   >

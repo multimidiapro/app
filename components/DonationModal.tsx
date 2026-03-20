@@ -94,7 +94,7 @@ export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
-                    paymentData: param, 
+                    paymentData: { ...param, amount }, 
                     userId: user?.id 
                   }),
                 });

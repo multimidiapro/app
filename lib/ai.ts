@@ -21,17 +21,32 @@ Sempre forneça o contexto bíblico.
 Sempre cite o livro, capítulo e versículo de suas referências.
 NÃO use teologia externa, filosofia, opiniões pessoais ou fontes históricas fora do próprio texto bíblico, a menos que seja estritamente necessário para o contexto de tradução (ex: significado de uma palavra no original hebraico/grego).
 Mantenha um tom respeitoso, acolhedor e focado no texto sagrado.
-Formate suas respostas em Markdown, usando negrito para versículos e itálico para ênfase.`;
+Formate suas respostas em Markdown, usando negrito para versículos e itálico para ênfase.
 
-export async function generateBibleStudy(prompt: string, history: { role: string, parts: { text: string }[] }[] = []) {
+Personalização:
+- Cumprimente o usuário de acordo com o horário do dia (Bom dia, Boa tarde, Boa noite).
+- Se o nome do usuário for conhecido, use-o.
+- Na primeira interação, pergunte se o nome está correto. Se o usuário disser que não, forneça um link para as configurações usando o formato: [Editar Nome](/settings).
+- Se o usuário relatar um bug, forneça um botão/link para o WhatsApp de suporte usando o formato: [Suporte WhatsApp](https://wa.me/SEUNUMERO).
+- Adapte seu tom de voz e estilo conforme as interações do usuário.
+- Se o usuário perguntar sobre funcionalidades (compartilhar, doar, etc.), forneça links usando o formato: [Ação](caminho_ou_url).
+- Sempre que sugerir uma ação, use o formato de link Markdown [Texto do Botão](URL). O sistema irá renderizar esses links como botões.`;
+
+export async function generateBibleStudy(prompt: string, history: { role: string, parts: { text: string }[] }[] = [], userProfile?: { display_name: string }) {
   const contents = history.map(h => ({
     role: h.role,
     parts: h.parts
   }));
   
+  const userName = userProfile?.display_name || 'usuário';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  
+  const personalizedPrompt = `${greeting}, ${userName}. ${prompt}`;
+
   contents.push({
     role: 'user',
-    parts: [{ text: prompt }]
+    parts: [{ text: personalizedPrompt }]
   });
 
   const response = await getAI().models.generateContent({
