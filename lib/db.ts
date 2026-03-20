@@ -652,50 +652,111 @@ export async function getGeneratedImages(bookId: string, chapter: number, verse:
   return [];
 }
 
-// Goals
-export async function getGoals(): Promise<string> {
+export type Profile = {
+  id: string;
+  display_name: string;
+  photo_url: string | null;
+  goals: string;
+};
+
+export async function getProfile(): Promise<Profile | null> {
   const userId = await getUserId();
   
   if (supabase) {
     try {
       const { data, error } = await supabase
-        .from('user_goals')
-        .select('goals')
-        .eq('user_id', userId)
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
         .single();
         
-      if (!error && data) return data.goals;
+      if (!error && data) return data;
+      
+      // If not found, create a default profile
+      if (error && error.code === 'PGRST116') {
+        const defaultProfile = {
+          id: userId,
+          display_name: '',
+          photo_url: null,
+          goals: await getGoals()
+        };
+        await updateProfile(defaultProfile);
+        return defaultProfile;
+      }
     } catch (e) {
       console.error('Supabase error', e);
     }
   }
   
   if (typeof window !== 'undefined') {
-    return localStorage.getItem('biblia_ai_goals') || '';
+    return {
+      id: userId,
+      display_name: localStorage.getItem('biblia_ai_name') || '',
+      photo_url: localStorage.getItem('biblia_ai_photo') || null,
+      goals: localStorage.getItem('biblia_ai_goals') || ''
+    };
   }
-  return '';
+  return null;
 }
 
-export async function saveGoals(goals: string) {
+export async function updateProfile(profile: Partial<Profile>) {
   const userId = await getUserId();
   
   if (supabase) {
     try {
       await supabase
-        .from('user_goals')
+        .from('profiles')
         .upsert({ 
-          user_id: userId, 
-          goals,
+          id: userId, 
+          ...profile,
           updated_at: new Date().toISOString()
-        }, { onConflict: 'user_id' });
+        });
     } catch (e) {
       console.error('Supabase error', e);
     }
   }
   
   if (typeof window !== 'undefined') {
-    localStorage.setItem('biblia_ai_goals', goals);
+    if (profile.display_name !== undefined) localStorage.setItem('biblia_ai_name', profile.display_name);
+    if (profile.photo_url !== undefined) localStorage.setItem('biblia_ai_photo', profile.photo_url || '');
+    if (profile.goals !== undefined) localStorage.setItem('biblia_ai_goals', profile.goals);
   }
+}
+
+export async function uploadProfileImage(file: File): Promise<string | null> {
+  const userId = await getUserId();
+  
+  if (supabase) {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${userId}-${Math.random()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (e) {
+      console.error('Upload error', e);
+    }
+  }
+  return null;
+}
+
+export async function getGoals(): Promise<string> {
+  const profile = await getProfile();
+  return profile?.goals || '';
+}
+
+export async function saveGoals(goals: string) {
+  await updateProfile({ goals });
 }
 
 export async function getChapterCache(bookId: string, chapter: number): Promise<unknown | null> {

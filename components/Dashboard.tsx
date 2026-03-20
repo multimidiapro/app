@@ -2,19 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, BookOpen, Clock, ChevronRight, User, Lock, Calendar, X } from 'lucide-react';
+import { Search, BookOpen, Clock, ChevronRight, User, Lock, Calendar, X, MessageCircle } from 'lucide-react';
 import { generateVerseOfTheDay } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatBibleText } from '@/lib/bible-utils';
-import { getStudies, saveStudy, getGoals, saveSearchHistory, getVerseOfTheDayForDate, saveVerseOfTheDayForDate, getVerseHistory, copyStudy, type StudyHistory } from '@/lib/db';
+import { getStudies, saveStudy, getGoals, saveSearchHistory, getVerseOfTheDayForDate, saveVerseOfTheDayForDate, getVerseHistory, copyStudy, type StudyHistory, getProfile, type Profile } from '@/lib/db';
 import { ShareVerse } from '@/components/ShareVerse';
 import { useAuth } from '@/hooks/useAuth';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import LZString from 'lz-string';
+import { ProfileMenu } from '@/components/ProfileMenu';
 
 export default function Dashboard() {
   const router = useRouter();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [verse, setVerse] = useState<{ reference: string; text: string; explanation: string } | null>(null);
   const [loadingVerse, setLoadingVerse] = useState(true);
@@ -25,8 +26,20 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [verseHistory, setVerseHistory] = useState<string[]>([]);
   const [showFullCalendar, setShowFullCalendar] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      if (user) {
+        const p = await getProfile();
+        setProfile(p);
+      }
+    };
+    loadProfile();
+  }, [user, showProfile]);
 
   useEffect(() => {
     const handleSharedAction = async () => {
@@ -212,29 +225,11 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-center sm:justify-end overflow-x-auto pb-2 sm:pb-0">
           <button 
-            onClick={() => router.push('/study')}
-            className="text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors whitespace-nowrap"
-          >
-            Estudos
-          </button>
-          <button 
-            onClick={() => router.push('/highlights')}
-            className="text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors whitespace-nowrap"
-          >
-            Destaques
-          </button>
-          <button 
             onClick={() => router.push('/bible')}
             className="text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 md:gap-2 whitespace-nowrap"
           >
             <BookOpen size={16} />
             <span>Bíblia</span>
-          </button>
-          <button 
-            onClick={() => router.push('/goals')}
-            className="text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors whitespace-nowrap"
-          >
-            Objetivos
           </button>
 
           <div className="hidden sm:block">
@@ -242,26 +237,18 @@ export default function Dashboard() {
           </div>
           
           {user ? (
-            <div className="relative group">
-              <button className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+            <button 
+              onClick={() => setShowProfile(true)}
+              className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+            >
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-primary/20">
+                {profile?.photo_url ? (
+                  <img src={profile.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
                   <User size={16} />
-                </div>
-              </button>
-              <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-border rounded-xl shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                <div className="p-3 border-b border-border">
-                  <p className="text-sm font-medium truncate">{user.email}</p>
-                </div>
-                <div className="p-1">
-                  <button 
-                    onClick={() => signOut()}
-                    className="w-full text-left px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                  >
-                    Sair
-                  </button>
-                </div>
+                )}
               </div>
-            </div>
+            </button>
           ) : (
             <button 
               onClick={() => router.push('/login')}
@@ -562,6 +549,24 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Support Icon */}
+      <button
+        onClick={() => {
+          const msg = "Graça e Paz! Vim do app IA Biblia e gostaria de informar ";
+          window.open(`https://wa.me/5562994581066?text=${encodeURIComponent(msg)}`, '_blank');
+        }}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 transition-transform z-40 group"
+        title="Suporte / Reportar Bug"
+      >
+        <MessageCircle size={28} />
+        <span className="absolute right-full mr-3 px-3 py-1 bg-card border border-border rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+          Suporte / Reportar Bug
+        </span>
+      </button>
+
+      {/* Profile Menu */}
+      <ProfileMenu isOpen={showProfile} onClose={() => setShowProfile(false)} />
     </div>
   );
 }
