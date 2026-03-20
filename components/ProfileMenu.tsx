@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import Image from 'next/image';
 import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getProfile, updateProfile, uploadProfileImage, type Profile, getStudies, getAllHighlights, type StudyHistory, type Highlight } from '@/lib/db';
@@ -119,7 +120,7 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
   };
 
   const getCroppedImg = async (imageSrc: string, pixelCrop: Area): Promise<Blob> => {
-    const image = new Image();
+    const image = new window.Image();
     image.src = imageSrc;
     await new Promise((resolve) => (image.onload = resolve));
 
@@ -208,7 +209,7 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                     onClick={() => fileInputRef.current?.click()}
                   >
                     {profile?.photo_url ? (
-                      <img src={profile.photo_url} alt="Profile" className="w-full h-full object-cover" />
+                      <Image src={profile.photo_url} alt="Profile" width={96} height={96} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
                       <User size={40} className="text-muted-foreground" />
                     )}

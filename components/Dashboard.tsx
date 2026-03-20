@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, BookOpen, Clock, ChevronRight, User, Lock, Calendar, X, MessageCircle } from 'lucide-react';
+import Image from 'next/image';
+import { Search, BookOpen, Clock, ChevronRight, User, Lock, Calendar, X, MessageSquare, Heart } from 'lucide-react';
 import { generateVerseOfTheDay } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatBibleText } from '@/lib/bible-utils';
@@ -12,6 +13,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import LZString from 'lz-string';
 import { ProfileMenu } from '@/components/ProfileMenu';
+import { FeedbackModal } from '@/components/FeedbackModal';
+import { DonationModal } from '@/components/DonationModal';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -27,6 +30,8 @@ export default function Dashboard() {
   const [verseHistory, setVerseHistory] = useState<string[]>([]);
   const [showFullCalendar, setShowFullCalendar] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [showDonation, setShowDonation] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -219,7 +224,21 @@ export default function Dashboard() {
       <header className="flex flex-col sm:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
           <h1 className="font-outfit text-2xl md:text-3xl font-bold tracking-tight text-foreground">IA Bíblia</h1>
-          <div className="sm:hidden">
+          <div className="flex items-center gap-2 sm:hidden">
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Sugestões ou Bugs"
+            >
+              <MessageSquare size={20} />
+            </button>
+            <button
+              onClick={() => setShowDonation(true)}
+              className="p-2 rounded-full hover:bg-secondary transition-colors text-red-500 hover:text-red-600"
+              aria-label="Doar"
+            >
+              <Heart size={20} />
+            </button>
             <ThemeToggle />
           </div>
         </div>
@@ -232,31 +251,44 @@ export default function Dashboard() {
             <span>Bíblia</span>
           </button>
 
-          <div className="hidden sm:block">
+          <div className="hidden sm:flex items-center gap-2">
+            <button
+              onClick={() => setShowFeedback(true)}
+              className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+              aria-label="Sugestões ou Bugs"
+            >
+              <MessageSquare size={20} />
+            </button>
+            <button
+              onClick={() => setShowDonation(true)}
+              className="p-2 rounded-full hover:bg-secondary transition-colors text-red-500 hover:text-red-600"
+              aria-label="Doar"
+            >
+              <Heart size={20} />
+            </button>
             <ThemeToggle />
+            {user ? (
+              <button 
+                onClick={() => setShowProfile(true)}
+                className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-primary/20">
+                  {profile?.photo_url ? (
+                    <Image src={profile.photo_url} alt="Profile" width={32} height={32} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <User size={16} />
+                  )}
+                </div>
+              </button>
+            ) : (
+              <button 
+                onClick={() => router.push('/login')}
+                className="text-xs md:text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition-colors whitespace-nowrap"
+              >
+                Entrar
+              </button>
+            )}
           </div>
-          
-          {user ? (
-            <button 
-              onClick={() => setShowProfile(true)}
-              className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-            >
-              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-primary/20">
-                {profile?.photo_url ? (
-                  <img src={profile.photo_url} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <User size={16} />
-                )}
-              </div>
-            </button>
-          ) : (
-            <button 
-              onClick={() => router.push('/login')}
-              className="text-xs md:text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition-colors whitespace-nowrap"
-            >
-              Entrar
-            </button>
-          )}
         </div>
       </header>
 
@@ -550,23 +582,14 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Support Icon */}
-      <button
-        onClick={() => {
-          const msg = "Graça e Paz! Vim do app IA Biblia e gostaria de informar ";
-          window.open(`https://wa.me/5562994581066?text=${encodeURIComponent(msg)}`, '_blank');
-        }}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg shadow-primary/30 flex items-center justify-center hover:scale-110 transition-transform z-40 group"
-        title="Suporte / Reportar Bug"
-      >
-        <MessageCircle size={28} />
-        <span className="absolute right-full mr-3 px-3 py-1 bg-card border border-border rounded-lg text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-          Suporte / Reportar Bug
-        </span>
-      </button>
-
       {/* Profile Menu */}
       <ProfileMenu isOpen={showProfile} onClose={() => setShowProfile(false)} />
+      
+      {/* Feedback Modal */}
+      <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
+      
+      {/* Donation Modal */}
+      <DonationModal isOpen={showDonation} onClose={() => setShowDonation(false)} />
     </div>
   );
 }

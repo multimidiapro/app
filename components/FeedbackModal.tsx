@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { X, MessageSquare } from 'lucide-react';
+import { X } from 'lucide-react';
 
 export function FeedbackModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [message, setMessage] = useState('');
