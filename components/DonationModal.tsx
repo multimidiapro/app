@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { X, Heart } from 'lucide-react';
 import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+import { useAuth } from '@/hooks/useAuth';
 
 // Initialize Mercado Pago
 if (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
@@ -9,6 +10,7 @@ if (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
 }
 
 export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const { user } = useAuth();
   const [amount, setAmount] = useState('');
   const [frequency, setFrequency] = useState<'once' | 'monthly'>('once');
   const [paymentReady, setPaymentReady] = useState(false);
@@ -87,10 +89,25 @@ export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
               }
             }}
             onSubmit={async (param) => {
-              // Here you would call your backend to process the payment
-              // You can pass the 'frequency' state here to your backend
-              console.log('Payment data:', param, 'Frequency:', frequency);
-              alert('Pagamento processado (simulado)');
+              try {
+                const response = await fetch('/api/process-payment', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ 
+                    paymentData: param, 
+                    userId: user?.id 
+                  }),
+                });
+                const data = await response.json();
+                if (data.status === 'approved') {
+                  alert('Pagamento aprovado! Obrigado por contribuir.');
+                } else {
+                  alert('Pagamento processado. Status: ' + data.status);
+                }
+              } catch (error) {
+                console.error('Payment error:', error);
+                alert('Erro ao processar pagamento.');
+              }
               onClose();
             }}
           />
