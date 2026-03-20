@@ -21,6 +21,7 @@ const getUserId = async () => {
 export type Highlight = {
   verse: number;
   color: string;
+  text?: string;
 };
 
 export type StudyHistory = {
@@ -481,15 +482,16 @@ export async function getAllHighlights(): Promise<(Highlight & { book_id: string
         .eq('user_id', userId);
         
       if (!error && data) {
+        const highlights = data as (Highlight & { book_id: string; chapter: number })[];
         // Try to populate text from cache
-        for (const h of data) {
+        for (const h of highlights) {
           const cached = await getChapterCache(h.book_id, h.chapter) as { verses: { verse: number; text: string }[] } | null;
           if (cached && cached.verses) {
             const verse = cached.verses.find((v: { verse: number; text: string }) => v.verse === h.verse);
             if (verse) h.text = verse.text;
           }
         }
-        return data;
+        return highlights;
       }
     } catch (e) {
       console.error('Supabase error', e);
