@@ -15,6 +15,10 @@ export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
   if (!isOpen) return null;
 
   const handleDonate = () => {
+    if (!process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
+      alert('Configuração de pagamento ausente. Por favor, contate o suporte.');
+      return;
+    }
     if (amount) {
       setPaymentReady(true);
     }
