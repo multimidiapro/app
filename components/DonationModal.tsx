@@ -10,6 +10,7 @@ if (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
 
 export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const [amount, setAmount] = useState('');
+  const [frequency, setFrequency] = useState<'once' | 'monthly'>('once');
   const [paymentReady, setPaymentReady] = useState(false);
 
   if (!isOpen) return null;
@@ -40,9 +41,9 @@ export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
         {!paymentReady ? (
           <>
             <p className="text-sm text-muted-foreground mb-4">
-              Sua contribuição ajuda a manter o aplicativo funcionando.
+              Sua contribuição ajuda a manter o aplicativo funcionando. Escolha o valor e a frequência.
             </p>
-            <div className="mb-6">
+            <div className="mb-4">
               <label className="text-xs font-medium text-muted-foreground">Valor (R$)</label>
               <input
                 type="number"
@@ -51,6 +52,20 @@ export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
                 className="w-full p-3 bg-secondary rounded-lg border border-border focus:outline-none focus:ring-1 focus:ring-primary"
                 placeholder="0,00"
               />
+            </div>
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={() => setFrequency('once')}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg ${frequency === 'once' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+              >
+                Uma vez
+              </button>
+              <button
+                onClick={() => setFrequency('monthly')}
+                className={`flex-1 py-2 text-sm font-medium rounded-lg ${frequency === 'monthly' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
+              >
+                Mensal
+              </button>
             </div>
             <button
               onClick={handleDonate}
@@ -63,10 +78,18 @@ export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
         ) : (
           <Payment
             initialization={{ amount: Number(amount) }}
-            customization={{ paymentMethods: { creditCard: 'all', ticket: 'all' } }}
+            customization={{ 
+              paymentMethods: { creditCard: 'all', bankTransfer: 'all' },
+              visual: {
+                style: {
+                  theme: 'dark'
+                }
+              }
+            }}
             onSubmit={async (param) => {
               // Here you would call your backend to process the payment
-              console.log('Payment data:', param);
+              // You can pass the 'frequency' state here to your backend
+              console.log('Payment data:', param, 'Frequency:', frequency);
               alert('Pagamento processado (simulado)');
               onClose();
             }}
