@@ -2,14 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, BookOpen, Clock, ChevronRight, User } from 'lucide-react';
+import { Search, BookOpen, Clock, ChevronRight, User, Lock, Calendar, X } from 'lucide-react';
 import { generateVerseOfTheDay } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatBibleText } from '@/lib/bible-utils';
-import { getStudies, saveStudy, getGoals, saveSearchHistory, type StudyHistory } from '@/lib/db';
+import { getStudies, saveStudy, getGoals, saveSearchHistory, getVerseOfTheDayForDate, saveVerseOfTheDayForDate, getVerseHistory, copyStudy, type StudyHistory } from '@/lib/db';
 import { ShareVerse } from '@/components/ShareVerse';
 import { useAuth } from '@/hooks/useAuth';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
+import LZString from 'lz-string';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -20,6 +21,43 @@ export default function Dashboard() {
   const [history, setHistory] = useState<StudyHistory[]>([]);
   const [similarStudy, setSimilarStudy] = useState<StudyHistory | null>(null);
   const [pendingQuery, setPendingQuery] = useState('');
+  
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [verseHistory, setVerseHistory] = useState<string[]>([]);
+  const [showFullCalendar, setShowFullCalendar] = useState(false);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  useEffect(() => {
+    const handleSharedAction = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const sharedData = searchParams.get('share');
+      const action = searchParams.get('action');
+
+      if (sharedData && action === 'copy' && user) {
+        try {
+          const decompressed = LZString.decompressFromEncodedURIComponent(sharedData);
+          if (decompressed) {
+            const messages = JSON.parse(decompressed);
+            const title = 'Estudo Bíblico Compartilhado';
+            const dbMessages = messages.map((m: { role: 'user' | 'model'; text: string }) => ({
+              role: m.role,
+              parts: [{ text: m.text }]
+            }));
+            const newId = await copyStudy(title, dbMessages);
+            // Clear URL params and redirect to the new study
+            router.replace(`/study/${newId}`);
+          }
+        } catch (e) {
+          console.error('Failed to auto-copy shared study', e);
+        }
+      }
+    };
+
+    if (user) {
+      handleSharedAction();
+    }
+  }, [user, router]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -27,22 +65,32 @@ export default function Dashboard() {
       const studies = await getStudies();
       setHistory(studies);
 
-      // Load or generate verse of the day
-      const today = new Date().toISOString().split('T')[0];
-      const savedVerse = localStorage.getItem(`biblia_ai_verse_${today}`);
+      // Load verse history
+      const vHistory = await getVerseHistory();
+      setVerseHistory(vHistory);
+    };
+
+    loadData();
+  }, []);
+
+  useEffect(() => {
+    const loadVerse = async () => {
+      setLoadingVerse(true);
+      const savedVerse = await getVerseOfTheDayForDate(selectedDate);
       
       if (savedVerse) {
-        setVerse(JSON.parse(savedVerse));
+        setVerse(savedVerse);
         setLoadingVerse(false);
-      } else {
-        // Generate new verse based on history
+      } else if (selectedDate === todayStr) {
+        // Generate new verse for today based on history
         const userGoals = await getGoals();
-        const historySummary = studies.map(h => h.title).join(', ');
+        const historySummary = history.map(h => h.title).join(', ');
         
         try {
           const v = await generateVerseOfTheDay(userGoals, historySummary);
           setVerse(v);
-          localStorage.setItem(`biblia_ai_verse_${today}`, JSON.stringify(v));
+          await saveVerseOfTheDayForDate(selectedDate, v);
+          setVerseHistory(prev => prev.includes(selectedDate) ? prev : [...prev, selectedDate]);
         } catch (e) {
           console.error('Failed to generate verse:', e);
           const fallbackVerse = {
@@ -51,15 +99,41 @@ export default function Dashboard() {
             explanation: "A Palavra de Deus nos guia em todas as decisões."
           };
           setVerse(fallbackVerse);
-          localStorage.setItem(`biblia_ai_verse_${today}`, JSON.stringify(fallbackVerse));
+          await saveVerseOfTheDayForDate(selectedDate, fallbackVerse);
+          setVerseHistory(prev => prev.includes(selectedDate) ? prev : [...prev, selectedDate]);
         } finally {
           setLoadingVerse(false);
         }
+      } else {
+        // No verse for this date and it's not today
+        setVerse(null);
+        setLoadingVerse(false);
       }
     };
 
-    loadData();
-  }, []);
+    loadVerse();
+  }, [selectedDate, history, todayStr]);
+
+  const getWeekDays = () => {
+    const days = [];
+    const now = new Date();
+    const first = now.getDate() - now.getDay();
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth(), first + i);
+      days.push(d.toISOString().split('T')[0]);
+    }
+    return days;
+  };
+
+  const weekDays = getWeekDays();
+
+  const formatDateLong = (dateStr: string) => {
+    const date = new Date(dateStr + 'T12:00:00');
+    const formatted = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    // Capitalize first letter and remove "-feira" for a cleaner look
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1).replace('-feira', '');
+  };
 
   const checkSimilarStudy = (query: string, currentHistory: StudyHistory[]) => {
     if (currentHistory.length === 0) return null;
@@ -230,58 +304,114 @@ export default function Dashboard() {
           <div className="absolute top-0 left-0 w-2 h-full bg-primary shadow-[0_0_10px_rgba(14,165,233,0.5)]"></div>
           <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-500"></div>
           
-          <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4 relative z-10">Versículo do Dia</h3>
-          
-          {loadingVerse ? (
-            <div className="animate-pulse flex flex-col gap-3 relative z-10">
-              <div className="h-6 bg-muted rounded w-1/4"></div>
-              <div className="h-8 bg-muted rounded w-3/4"></div>
-              <div className="h-4 bg-muted rounded w-full mt-4"></div>
-            </div>
-          ) : verse ? (
-            <div className="flex flex-col gap-3 md:gap-4 relative z-10">
-              <p className="font-serif text-xl md:text-3xl font-medium leading-snug text-foreground">
-                &quot;{verse.text}&quot;
-              </p>
-              <p className="font-bold text-primary text-sm md:text-base">{verse.reference}</p>
-              <div className="h-px bg-border w-full my-1 md:my-2"></div>
-              <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                {formatBibleText(verse.explanation)}
-              </p>
-              <div className="flex items-center gap-4 mt-2">
-                <button
-                  onClick={() => {
-                    // Parse reference like "João 3:16" or "1 João 3:16"
-                    const match = verse.reference.match(/^(\d?\s?[a-zA-ZÀ-ÿ]+)\s+(\d+):(\d+)/);
-                    if (match) {
-                      const bookName = match[1].trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-                      const chapter = match[2];
-                      const verseNum = match[3];
-                      
-                      // Find book ID
-                      const book = BIBLE_BOOKS.find((b: { id: string; name: string }) => 
-                        b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === bookName ||
-                        b.id.replace(/\s+/g, '') === bookName.replace(/\s+/g, '')
-                      );
-                      
-                      if (book) {
-                        router.push(`/bible/${book.id}/${chapter}#v${verseNum}`);
-                      }
-                    }
-                  }}
-                  className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline w-fit"
-                >
-                  <BookOpen size={16} />
-                  Ler no capítulo
-                </button>
-                <ShareVerse 
-                  text={verse.text} 
-                  reference={verse.reference} 
-                  className="text-primary hover:underline"
-                />
+          <div className="flex flex-col gap-6 relative z-10">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-muted-foreground">Versículo do Dia</h3>
+                <p className="text-sm font-medium text-foreground mt-1 capitalize">
+                  {formatDateLong(selectedDate)}
+                </p>
               </div>
+              <button 
+                onClick={() => setShowFullCalendar(true)}
+                className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-primary"
+                title="Ver calendário completo"
+              >
+                <Calendar size={20} />
+              </button>
             </div>
-          ) : null}
+
+            {/* Day Selector */}
+            <div className="flex justify-between items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+              {weekDays.map((dateStr) => {
+                const date = new Date(dateStr + 'T12:00:00');
+                const isToday = dateStr === todayStr;
+                const isSelected = dateStr === selectedDate;
+                const hasVerse = verseHistory.includes(dateStr);
+                const isFuture = dateStr > todayStr;
+                const isUnlocked = !isFuture && (isToday || hasVerse);
+                const dayName = date.toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', '');
+                const dayNum = date.getDate();
+
+                return (
+                  <button
+                    key={dateStr}
+                    disabled={!isUnlocked}
+                    onClick={() => setSelectedDate(dateStr)}
+                    className={`flex flex-col items-center gap-2 min-w-[48px] p-2 rounded-2xl transition-all ${
+                      isSelected 
+                        ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' 
+                        : 'hover:bg-secondary text-muted-foreground'
+                    } ${!isUnlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-tighter">{dayName}</span>
+                    <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 ${
+                      isSelected ? 'border-primary-foreground/30' : 'border-transparent'
+                    }`}>
+                      {!isUnlocked ? (
+                        <Lock size={12} />
+                      ) : (
+                        <span className="text-sm font-bold">{dayNum}</span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="h-px bg-border w-full"></div>
+            
+            {loadingVerse ? (
+              <div className="animate-pulse flex flex-col gap-3">
+                <div className="h-8 bg-muted rounded w-3/4"></div>
+                <div className="h-4 bg-muted rounded w-full mt-4"></div>
+              </div>
+            ) : verse ? (
+              <div className="flex flex-col gap-3 md:gap-4 animate-in fade-in duration-500">
+                <p className="font-serif text-xl md:text-3xl font-medium leading-snug text-foreground">
+                  &quot;{verse.text}&quot;
+                </p>
+                <p className="font-bold text-primary text-sm md:text-base">{verse.reference}</p>
+                <div className="h-px bg-border w-full my-1 md:my-2"></div>
+                <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                  {formatBibleText(verse.explanation)}
+                </p>
+                <div className="flex items-center gap-4 mt-2">
+                  <button
+                    onClick={() => {
+                      const match = verse.reference.match(/^(\d?\s?[a-zA-ZÀ-ÿ]+)\s+(\d+):(\d+)/);
+                      if (match) {
+                        const bookName = match[1].trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+                        const chapter = match[2];
+                        const verseNum = match[3];
+                        const book = BIBLE_BOOKS.find((b: { id: string; name: string }) => 
+                          b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === bookName ||
+                          b.id.replace(/\s+/g, '') === bookName.replace(/\s+/g, '')
+                        );
+                        if (book) router.push(`/bible/${book.id}/${chapter}#v${verseNum}`);
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline w-fit"
+                  >
+                    <BookOpen size={16} />
+                    Ler no capítulo
+                  </button>
+                  <ShareVerse 
+                    text={verse.text} 
+                    reference={verse.reference} 
+                    className="text-primary hover:underline"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 text-center flex flex-col items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                  <Lock size={20} />
+                </div>
+                <p className="text-muted-foreground text-sm">Este versículo ainda não está disponível.</p>
+              </div>
+            )}
+          </div>
         </section>
 
         {/* Recent Studies */}
@@ -321,6 +451,87 @@ export default function Dashboard() {
           </section>
         )}
       </main>
+
+      {/* Full Calendar Modal */}
+      {showFullCalendar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/90 backdrop-blur-md animate-in fade-in duration-300">
+          <div className="bg-card border border-border rounded-[2rem] p-6 md:p-8 max-w-2xl w-full shadow-2xl relative animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto no-scrollbar">
+            <button 
+              onClick={() => setShowFullCalendar(false)}
+              className="absolute top-6 right-6 p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground"
+            >
+              <X size={24} />
+            </button>
+
+            <div className="flex flex-col gap-8">
+              <div className="flex flex-col gap-2">
+                <h3 className="text-2xl md:text-3xl font-serif font-bold text-foreground">Calendário de Versículos</h3>
+                <p className="text-muted-foreground">Explore os versículos de cada dia.</p>
+              </div>
+
+              <div className="grid grid-cols-7 gap-2 md:gap-4">
+                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                  <div key={day} className="text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50 py-2">
+                    {day}
+                  </div>
+                ))}
+                
+                {/* Empty slots for month start alignment - simplified for current month view */}
+                {Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth(), 1).getDay() }).map((_, i) => (
+                  <div key={`empty-${i}`} className="aspect-square"></div>
+                ))}
+
+                {/* Days of the current month */}
+                {Array.from({ length: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate() }).map((_, i) => {
+                  const day = i + 1;
+                  const date = new Date(new Date().getFullYear(), new Date().getMonth(), day);
+                  const dStr = date.toISOString().split('T')[0];
+                  const isToday = dStr === todayStr;
+                  const isSelected = dStr === selectedDate;
+                  const isFuture = dStr > todayStr;
+                  const hasVerse = verseHistory.includes(dStr);
+                  const isUnlocked = !isFuture && (isToday || hasVerse);
+
+                  return (
+                    <button
+                      key={dStr}
+                      disabled={!isUnlocked}
+                      onClick={() => {
+                        setSelectedDate(dStr);
+                        setShowFullCalendar(false);
+                      }}
+                      className={`relative aspect-square flex flex-col items-center justify-center rounded-2xl md:rounded-3xl transition-all border-2 ${
+                        isSelected 
+                          ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-110 z-10' 
+                          : isToday
+                          ? 'bg-primary/10 text-primary border-primary/30'
+                          : 'bg-secondary/50 text-foreground border-transparent hover:border-primary/30'
+                      } ${!isUnlocked ? 'opacity-30 cursor-not-allowed grayscale' : ''}`}
+                    >
+                      <span className="text-sm md:text-lg font-bold">{day}</span>
+                      {hasVerse && !isSelected && !isFuture && (
+                        <div className="absolute bottom-2 w-1 h-1 rounded-full bg-primary"></div>
+                      )}
+                      {!isUnlocked && <Lock size={10} className="mt-1 opacity-50" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex items-center gap-4 p-4 bg-secondary/30 rounded-2xl text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-primary"></div>
+                  <span>Hoje / Selecionado</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-muted flex items-center justify-center"><Lock size={8} /></div>
+                  <span>Futuro (Bloqueado)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Similar Study Modal */}
       {similarStudy && (

@@ -6,9 +6,10 @@ import { ArrowLeft, ChevronLeft, ChevronRight, X, MessageSquare, Eraser, BookOpe
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { generateVerseExplanation, generateBibleText } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { formatBibleText } from '@/lib/bible-utils';
-import { getHighlights, saveHighlight, removeHighlight, saveStudy, saveReadingHistory, getVerseReadHistory, markChapterCompleted, removeReadingHistory } from '@/lib/db';
+import { formatBibleText, linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
+import { getHighlights, saveHighlight, removeHighlight, saveStudy, saveReadingHistory, getVerseReadHistory, markChapterCompleted, removeReadingHistory, fetchAndCacheChapter } from '@/lib/db';
 import { ShareVerse } from '@/components/ShareVerse';
+import ReactMarkdown from 'react-markdown';
 
 type Verse = {
   book_id: string;
@@ -65,40 +66,27 @@ export default function ChapterPage() {
         setLoading(true);
         setError('');
         
-        // Try Portuguese name first with encoding
         if (!bookInfo) throw new Error('Livro não encontrado');
-        
-        const url = `https://bible-api.com/${encodeURIComponent(`${bookInfo.name} ${chapterNum}`)}?translation=almeida`;
-        let res = await fetch(url);
-        
-        if (!res.ok) {
-          // Try English ID as fallback
-          const fallbackUrl = `https://bible-api.com/${encodeURIComponent(`${bookInfo.id} ${chapterNum}`)}?translation=almeida`;
-          res = await fetch(fallbackUrl);
-        }
 
-        if (!res.ok) {
-          // Try without translation parameter as last resort (might return KJV or default)
-          const lastResortUrl = `https://bible-api.com/${encodeURIComponent(`${bookInfo.id} ${chapterNum}`)}`;
-          res = await fetch(lastResortUrl);
-        }
-
-        if (res.ok) {
-          const json = await res.json();
-          setData(json);
-        } else {
-          // AI Fallback as last resort
+        const json = await fetchAndCacheChapter(bookId, bookInfo.name, chapterNum);
+        setData(json);
+      } catch (err) {
+        // AI Fallback as last resort
+        if (bookInfo) {
           console.log('API failed, falling back to AI for text');
-          const aiText = await generateBibleText(`${bookInfo.name} ${chapterNum}`);
-          if (aiText && aiText.verses && aiText.verses.length > 0) {
-            setData(aiText);
-          } else {
-            throw new Error('Falha ao carregar o capítulo via API e AI');
+          try {
+            const aiText = await generateBibleText(`${bookInfo.name} ${chapterNum}`);
+            if (aiText && aiText.verses && aiText.verses.length > 0) {
+              setData(aiText);
+              // We don't save AI text to cache to avoid polluting it with non-official text
+            } else {
+              throw new Error('Falha ao carregar o capítulo via API e AI');
+            }
+          } catch {
+            console.error('Error fetching chapter:', err);
+            setError('Não foi possível carregar o capítulo. Verifique se o livro e capítulo existem ou tente novamente mais tarde.');
           }
         }
-      } catch (err) {
-        console.error('Error fetching chapter:', err);
-        setError('Não foi possível carregar o capítulo. Verifique se o livro e capítulo existem ou tente novamente mais tarde.');
       } finally {
         setLoading(false);
       }
@@ -108,6 +96,23 @@ export default function ChapterPage() {
       fetchChapter();
     }
   }, [bookId, chapterNum, bookInfo]);
+
+  // Pre-fetch next chapter
+  useEffect(() => {
+    if (data && bookInfo && chapterNum < bookInfo.chapters) {
+      const nextChapter = chapterNum + 1;
+      const prefetch = async () => {
+        try {
+          await fetchAndCacheChapter(bookId, bookInfo.name, nextChapter);
+        } catch (e) {
+          console.log('Pre-fetch failed', e);
+        }
+      };
+      // Delay pre-fetch slightly to not interfere with main content loading
+      const timer = setTimeout(prefetch, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [data, bookInfo, chapterNum, bookId]);
 
   // Load highlights and reading history
   useEffect(() => {
@@ -291,27 +296,11 @@ export default function ChapterPage() {
                   const highlightColor = highlights[verse.verse];
                   
                   return (
-                    <div key={verse.verse} className="flex gap-3 items-start group mb-2">
-                      <div className="pt-2">
-                        <input 
-                          type="checkbox" 
-                          checked={isRead} 
-                          onChange={async () => {
-                            if (isRead) {
-                              await removeReadingHistory(bookId, chapterNum, verse.verse);
-                              setReadVerses(prev => prev.filter(v => v !== verse.verse));
-                            } else {
-                              await saveReadingHistory(bookId, chapterNum, verse.verse, true);
-                              setReadVerses(prev => [...prev, verse.verse]);
-                            }
-                          }}
-                          className="w-5 h-5 rounded border-border accent-primary cursor-pointer opacity-40 group-hover:opacity-100 transition-opacity"
-                        />
-                      </div>
+                    <div key={verse.verse} className="group mb-2">
                       <span 
                         id={`v${verse.verse}`}
                         onClick={() => handleVerseClick(verse.verse)}
-                        className={`cursor-pointer transition-all duration-200 rounded px-1 py-0.5 relative flex-1 ${
+                        className={`cursor-pointer transition-all duration-200 rounded px-1 py-0.5 relative flex-1 block ${
                           isSelected ? 'ring-2 ring-primary bg-primary/20' : 'hover:bg-secondary'
                         } ${isRead ? 'opacity-70' : ''}`}
                         style={!isSelected && highlightColor ? { backgroundColor: highlightColor, color: '#0f172a' } : {}}
@@ -439,9 +428,15 @@ export default function ChapterPage() {
               <div className="flex flex-col gap-8 animate-in fade-in duration-500">
                 <div>
                   <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-3">Explicação</h3>
-                  <p className="text-foreground leading-relaxed">
-                    {formatBibleText(explanation.explanation)}
-                  </p>
+                  <div className="text-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown 
+                      components={{
+                        strong: ({...props}) => <strong className="text-primary font-bold" {...props} />
+                      }}
+                    >
+                      {linkifyBibleReferencesMarkdown(explanation.explanation)}
+                    </ReactMarkdown>
+                  </div>
                 </div>
 
                 {explanation.relatedVerses && explanation.relatedVerses.length > 0 && (
@@ -452,7 +447,15 @@ export default function ChapterPage() {
                         <div key={idx} className="border-l-2 border-primary pl-4 py-1">
                           <p className="font-bold text-sm text-foreground">{formatBibleText(rel.reference)}</p>
                           <p className="font-serif text-foreground my-1">&quot;{rel.text}&quot;</p>
-                          <p className="text-sm text-muted-foreground">{formatBibleText(rel.reason)}</p>
+                          <div className="text-sm text-muted-foreground prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown
+                              components={{
+                                strong: ({...props}) => <strong className="text-primary font-bold" {...props} />
+                              }}
+                            >
+                              {linkifyBibleReferencesMarkdown(rel.reason)}
+                            </ReactMarkdown>
+                          </div>
                         </div>
                       ))}
                     </div>

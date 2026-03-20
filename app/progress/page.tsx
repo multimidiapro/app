@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, BarChart3, BookOpen, CheckCircle2, Trophy, Flame, ChevronRight } from 'lucide-react';
 import { getReadingHistory } from '@/lib/db';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
+import { BIBLE_METADATA } from '@/lib/bible-metadata';
 import { ThemeToggle } from '@/components/theme-toggle';
 
 type ProgressStats = {
@@ -39,26 +40,30 @@ export default function ProgressPage() {
       };
 
       // Group by book and chapter
-      const bookChapterMap: Record<string, Set<number>> = {};
-      const completedChapters: Record<string, Set<number>> = {};
       const bookVerseMap: Record<string, Set<string>> = {};
+      const completedChapters: Record<string, Set<number>> = {};
       const readVerses = new Set<string>();
 
-      history.forEach((h: { book_id: string; chapter: number; verse?: number; is_completed?: boolean }) => {
-        if (h.verse) {
-          const verseKey = `${h.book_id}-${h.chapter}-${h.verse}`;
-          readVerses.add(verseKey);
-          
-          if (!bookVerseMap[h.book_id]) bookVerseMap[h.book_id] = new Set();
-          bookVerseMap[h.book_id].add(verseKey);
+      history.forEach((h: { book_id: string; chapter: number; verse?: number | null; is_completed?: boolean }) => {
+        if (h.verse !== null && h.verse !== undefined) {
+          // Validate verse against metadata
+          const maxVerses = BIBLE_METADATA[h.book_id]?.[h.chapter - 1] || 0;
+          if (h.verse > 0 && h.verse <= maxVerses) {
+            const verseKey = `${h.book_id}-${h.chapter}-${h.verse}`;
+            readVerses.add(verseKey);
+            
+            if (!bookVerseMap[h.book_id]) bookVerseMap[h.book_id] = new Set();
+            bookVerseMap[h.book_id].add(verseKey);
+          }
         }
         
-        if (!bookChapterMap[h.book_id]) bookChapterMap[h.book_id] = new Set();
-        bookChapterMap[h.book_id].add(h.chapter);
-
         if (h.is_completed) {
-          if (!completedChapters[h.book_id]) completedChapters[h.book_id] = new Set();
-          completedChapters[h.book_id].add(h.chapter);
+          // Validate chapter against metadata
+          const totalChaptersInBook = BIBLE_METADATA[h.book_id]?.length || 0;
+          if (h.chapter > 0 && h.chapter <= totalChaptersInBook) {
+            if (!completedChapters[h.book_id]) completedChapters[h.book_id] = new Set();
+            completedChapters[h.book_id].add(h.chapter);
+          }
         }
       });
 
@@ -73,7 +78,10 @@ export default function ProgressPage() {
       BIBLE_BOOKS.forEach(book => {
         const chaptersRead = completedChapters[book.id]?.size || 0;
         const versesRead = bookVerseMap[book.id]?.size || 0;
-        const percent = Math.round((chaptersRead / book.chapters) * 100);
+        const bookTotalVerses = BIBLE_METADATA[book.id]?.reduce((a, b) => a + b, 0) || 0;
+        
+        // Use verse-based progress for the percentage to be more granular
+        const percent = bookTotalVerses > 0 ? Math.min(100, Math.round((versesRead / bookTotalVerses) * 100)) : 0;
         
         stats.bookProgress[book.id] = {
           chaptersRead,
@@ -82,7 +90,7 @@ export default function ProgressPage() {
           percent
         };
 
-        if (chaptersRead === book.chapters) {
+        if (percent === 100) {
           stats.completedBooks.push(book.id);
         }
       });
@@ -97,7 +105,8 @@ export default function ProgressPage() {
   }, []);
 
   const totalBibleChapters = BIBLE_BOOKS.reduce((acc, b) => acc + b.chapters, 0);
-  const overallPercent = stats ? Math.round((stats.totalChapters / totalBibleChapters) * 100) : 0;
+  const totalBibleVerses = Object.values(BIBLE_METADATA).reduce((acc, book) => acc + book.reduce((a, b) => a + b, 0), 0);
+  const overallPercent = stats ? Math.min(100, Math.round((stats.totalVerses / totalBibleVerses) * 100)) : 0;
 
   return (
     <div className="min-h-screen bg-background relative z-10">

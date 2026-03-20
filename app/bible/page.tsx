@@ -43,7 +43,17 @@ export default function BiblePage() {
       if (history) {
         // Use a Set to ensure we only count unique verses (book-chapter-verse)
         const uniqueRead = new Set(history.filter(h => h.verse !== null).map(h => `${h.book_id}-${h.chapter}-${h.verse}`));
-        const readCount = uniqueRead.size;
+        
+        // FILTER: Only count verses that exist in our metadata to avoid overcounting
+        const validRead = Array.from(uniqueRead).filter(key => {
+          const [bookId, chapter, verse] = key.split('-');
+          const c = parseInt(chapter);
+          const v = parseInt(verse);
+          const maxVerses = BIBLE_METADATA[bookId]?.[c - 1] || 0;
+          return v > 0 && v <= maxVerses;
+        });
+        
+        const readCount = validRead.length;
         setProgress({ totalRead: readCount, totalVerses });
 
         // Calculate per-book progress
@@ -51,9 +61,19 @@ export default function BiblePage() {
         BIBLE_BOOKS.forEach(book => {
           const bookReadHistory = history.filter(h => h.book_id === book.id && h.verse !== null);
           const uniqueBookRead = new Set(bookReadHistory.map(h => `${h.chapter}-${h.verse}`));
-          const bookReadCount = uniqueBookRead.size;
+          
+          // Filter valid verses for this book
+          const validBookRead = Array.from(uniqueBookRead).filter(key => {
+            const [chapter, verse] = key.split('-');
+            const c = parseInt(chapter);
+            const v = parseInt(verse);
+            const maxVerses = BIBLE_METADATA[book.id]?.[c - 1] || 0;
+            return v > 0 && v <= maxVerses;
+          });
+          
+          const bookReadCount = validBookRead.length;
           const bookTotalVerses = getTotalVersesInBook(book.id);
-          bookMap[book.id] = bookTotalVerses > 0 ? Math.round((bookReadCount / bookTotalVerses) * 100) : 0;
+          bookMap[book.id] = bookTotalVerses > 0 ? Math.min(100, Math.round((bookReadCount / bookTotalVerses) * 100)) : 0;
         });
         setBookProgress(bookMap);
       }
@@ -66,7 +86,7 @@ export default function BiblePage() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
 
-  const percentage = progress.totalVerses > 0 ? Math.round((progress.totalRead / progress.totalVerses) * 100) : 0;
+  const percentage = progress.totalVerses > 0 ? Math.min(100, Math.round((progress.totalRead / progress.totalVerses) * 100)) : 0;
   
   const filteredBooks = BIBLE_BOOKS.filter(b => 
     b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")

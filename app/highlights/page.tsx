@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Filter, Trash2, ExternalLink, BookMarked } from 'lucide-react';
-import { getAllHighlights, removeHighlight } from '@/lib/db';
+import { getAllHighlights, removeHighlight, fetchAndCacheChapter } from '@/lib/db';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { ThemeToggle } from '@/components/theme-toggle';
 
@@ -27,6 +27,7 @@ export default function HighlightsPage() {
   const [highlights, setHighlights] = useState<Highlight[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterColor, setFilterColor] = useState<string | null>(null);
+  const [verseTexts, setVerseTexts] = useState<Record<string, string>>({});
 
   useEffect(() => {
     let isMounted = true;
@@ -38,6 +39,41 @@ export default function HighlightsPage() {
     });
     return () => { isMounted = false; };
   }, []);
+
+  useEffect(() => {
+    if (highlights.length === 0) return;
+
+    const fetchTexts = async () => {
+      const newTexts = { ...verseTexts };
+      const chaptersToFetch = new Set<string>();
+
+      highlights.forEach(h => {
+        const key = `${h.book_id}-${h.chapter}-${h.verse}`;
+        if (!newTexts[key]) {
+          chaptersToFetch.add(`${h.book_id}-${h.chapter}`);
+        }
+      });
+
+      if (chaptersToFetch.size === 0) return;
+
+      for (const chapterKey of Array.from(chaptersToFetch)) {
+        const [bookId, chapter] = chapterKey.split('-');
+        const bookName = BIBLE_BOOKS.find(b => b.id === bookId)?.name || bookId;
+        try {
+          const data = await fetchAndCacheChapter(bookId, bookName, parseInt(chapter));
+          data.verses.forEach((v: { verse: number; text: string; book_id: string; book_name: string; chapter: number }) => {
+            newTexts[`${bookId}-${chapter}-${v.verse}`] = v.text;
+          });
+        } catch (e) {
+          console.error(`Failed to fetch text for ${chapterKey}`, e);
+        }
+      }
+      setVerseTexts(newTexts);
+    };
+
+    fetchTexts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlights]);
 
   const handleDelete = async (h: Highlight) => {
     await removeHighlight(h.book_id, h.chapter, h.verse);
@@ -153,7 +189,9 @@ export default function HighlightsPage() {
                 </div>
                 
                 <p className="font-serif text-lg leading-relaxed text-foreground line-clamp-3 italic">
-                  &quot;Carregando texto...&quot;
+                  {verseTexts[`${h.book_id}-${h.chapter}-${h.verse}`] 
+                    ? `"${verseTexts[`${h.book_id}-${h.chapter}-${h.verse}`]}"`
+                    : '"Carregando texto..."'}
                 </p>
                 
                 <div className="mt-4 flex justify-end">

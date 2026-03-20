@@ -205,6 +205,23 @@ export async function deleteStudy(id: string) {
   }
 }
 
+export async function copyStudy(title: string, messages: Message[]) {
+  const newId = crypto.randomUUID();
+  const study: StudyHistory = {
+    id: newId,
+    title,
+    date: new Date().toISOString()
+  };
+  
+  await saveStudy(study);
+  
+  for (const msg of messages) {
+    await saveStudyMessage(newId, msg);
+  }
+  
+  return newId;
+}
+
 export async function updateStudyTitle(id: string, title: string) {
   const userId = await getUserId();
   
@@ -287,6 +304,14 @@ export async function saveStudyMessage(studyId: string, message: Message) {
 
 // --- New Phase 1 Tables ---
 
+export type ReadingHistory = {
+  book_id: string;
+  chapter: number;
+  verse?: number | null;
+  is_completed?: boolean;
+  updated_at?: string;
+};
+
 export async function saveReadingHistory(bookId: string, chapter: number, verse?: number, isCompleted: boolean = false) {
   const userId = await getUserId();
   
@@ -306,6 +331,28 @@ export async function saveReadingHistory(bookId: string, chapter: number, verse?
       console.error('Supabase error', e);
     }
   }
+
+  // Local storage fallback
+  if (typeof window !== 'undefined') {
+    const key = `reading_history_${userId}`;
+    const existing = localStorage.getItem(key);
+    let history: ReadingHistory[] = existing ? JSON.parse(existing) : [];
+    
+    // Remove existing entry if any
+    history = history.filter(h => 
+      !(h.book_id === bookId && h.chapter === chapter && h.verse === verse)
+    );
+    
+    history.push({
+      book_id: bookId,
+      chapter,
+      verse,
+      is_completed: isCompleted,
+      updated_at: new Date().toISOString()
+    });
+    
+    localStorage.setItem(key, JSON.stringify(history));
+  }
 }
 
 export async function removeReadingHistory(bookId: string, chapter: number, verse: number) {
@@ -324,9 +371,21 @@ export async function removeReadingHistory(bookId: string, chapter: number, vers
       console.error('Supabase error', e);
     }
   }
+
+  if (typeof window !== 'undefined') {
+    const key = `reading_history_${userId}`;
+    const existing = localStorage.getItem(key);
+    if (existing) {
+      let history: ReadingHistory[] = JSON.parse(existing);
+      history = history.filter(h => 
+        !(h.book_id === bookId && h.chapter === chapter && h.verse === verse)
+      );
+      localStorage.setItem(key, JSON.stringify(history));
+    }
+  }
 }
 
-export async function getReadingHistory() {
+export async function getReadingHistory(): Promise<ReadingHistory[]> {
   const userId = await getUserId();
   
   if (supabase) {
@@ -341,6 +400,12 @@ export async function getReadingHistory() {
     } catch (e) {
       console.error('Supabase error', e);
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    const key = `reading_history_${userId}`;
+    const local = localStorage.getItem(key);
+    if (local) return JSON.parse(local);
   }
   return [];
 }
@@ -415,7 +480,17 @@ export async function getAllHighlights(): Promise<(Highlight & { book_id: string
         .select('book_id, chapter, verse, color')
         .eq('user_id', userId);
         
-      if (!error && data) return data;
+      if (!error && data) {
+        // Try to populate text from cache
+        for (const h of data) {
+          const cached = await getChapterCache(h.book_id, h.chapter) as { verses: { verse: number; text: string }[] } | null;
+          if (cached && cached.verses) {
+            const verse = cached.verses.find((v: { verse: number; text: string }) => v.verse === h.verse);
+            if (verse) h.text = verse.text;
+          }
+        }
+        return data;
+      }
     } catch (e) {
       console.error('Supabase error', e);
     }
@@ -436,6 +511,16 @@ export async function getAllHighlights(): Promise<(Highlight & { book_id: string
         });
       }
     }
+    
+    // Try to populate text from cache for all highlights
+    for (const h of allHighlights) {
+      const cached = await getChapterCache(h.book_id, h.chapter) as { verses: { verse: number; text: string }[] } | null;
+      if (cached && cached.verses) {
+        const verse = cached.verses.find((v: { verse: number; text: string }) => v.verse === h.verse);
+        if (verse) h.text = verse.text;
+      }
+    }
+    
     return allHighlights;
   }
   return [];
@@ -460,6 +545,18 @@ export async function getVerseReadHistory(bookId: string, chapter: number): Prom
       }
     } catch (e) {
       console.error('Supabase error', e);
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    const key = `reading_history_${userId}`;
+    const local = localStorage.getItem(key);
+    if (local) {
+      const history: ReadingHistory[] = JSON.parse(local);
+      const chapterRead = history
+        .filter(h => h.book_id === bookId && h.chapter === chapter && h.verse !== null && h.verse !== undefined)
+        .map(h => h.verse as number);
+      return Array.from(new Set(chapterRead));
     }
   }
   return [];
@@ -497,6 +594,37 @@ export async function markChapterCompleted(bookId: string, chapter: number, vers
     } catch (e) {
       console.error('Supabase error', e);
     }
+  }
+
+  if (typeof window !== 'undefined') {
+    const key = `reading_history_${userId}`;
+    const existing = localStorage.getItem(key);
+    let history: ReadingHistory[] = existing ? JSON.parse(existing) : [];
+    
+    // Remove existing for this chapter
+    history = history.filter(h => !(h.book_id === bookId && h.chapter === chapter));
+    
+    // Add chapter completion
+    history.push({
+      book_id: bookId,
+      chapter,
+      verse: null,
+      is_completed: true,
+      updated_at: new Date().toISOString()
+    });
+    
+    // Add all verses
+    verses.forEach(v => {
+      history.push({
+        book_id: bookId,
+        chapter,
+        verse: v,
+        is_completed: true,
+        updated_at: new Date().toISOString()
+      });
+    });
+    
+    localStorage.setItem(key, JSON.stringify(history));
   }
 }
 
@@ -566,4 +694,154 @@ export async function saveGoals(goals: string) {
   if (typeof window !== 'undefined') {
     localStorage.setItem('biblia_ai_goals', goals);
   }
+}
+
+export async function getChapterCache(bookId: string, chapter: number): Promise<unknown | null> {
+  if (typeof window === 'undefined') return null;
+  const key = `bible_cache_${bookId}_${chapter}`;
+  const cached = localStorage.getItem(key);
+  if (cached) {
+    try {
+      const { data, timestamp } = JSON.parse(cached);
+      // Cache for 7 days
+      if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
+        return data;
+      }
+      localStorage.removeItem(key);
+    } catch {
+      localStorage.removeItem(key);
+    }
+  }
+  return null;
+}
+
+export async function saveChapterCache(bookId: string, chapter: number, data: unknown) {
+  if (typeof window === 'undefined') return;
+  const key = `bible_cache_${bookId}_${chapter}`;
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch (e) {
+    // If quota exceeded, clear some old cache
+    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k?.startsWith('bible_cache_')) {
+          localStorage.removeItem(k);
+          break;
+        }
+      }
+    }
+  }
+}
+
+export async function getVerseOfTheDayForDate(date: string): Promise<{ reference: string; text: string; explanation: string } | null> {
+  const userId = await getUserId();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('verse_of_the_day')
+        .select('reference, text, explanation')
+        .eq('user_id', userId)
+        .eq('date', date)
+        .single();
+        
+      if (!error && data) return data;
+    } catch (e) {
+      console.error('Supabase error', e);
+    }
+  }
+  
+  if (typeof window !== 'undefined') {
+    const local = localStorage.getItem(`biblia_ai_verse_${userId}_${date}`);
+    if (local) return JSON.parse(local);
+  }
+  return null;
+}
+
+export async function saveVerseOfTheDayForDate(date: string, verse: { reference: string; text: string; explanation: string }) {
+  const userId = await getUserId();
+  
+  if (supabase) {
+    try {
+      await supabase
+        .from('verse_of_the_day')
+        .upsert({ 
+          user_id: userId, 
+          date, 
+          reference: verse.reference, 
+          text: verse.text, 
+          explanation: verse.explanation,
+          created_at: new Date().toISOString()
+        }, { onConflict: 'user_id,date' });
+    } catch (e) {
+      console.error('Supabase error', e);
+    }
+  }
+  
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`biblia_ai_verse_${userId}_${date}`, JSON.stringify(verse));
+    
+    // Also track which dates have verses in a separate list for easy lookup
+    const historyKey = `biblia_ai_verse_history_${userId}`;
+    const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+    if (!history.includes(date)) {
+      history.push(date);
+      localStorage.setItem(historyKey, JSON.stringify(history));
+    }
+  }
+}
+
+export async function getVerseHistory(): Promise<string[]> {
+  const userId = await getUserId();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('verse_of_the_day')
+        .select('date')
+        .eq('user_id', userId);
+        
+      if (!error && data) return data.map(d => d.date);
+    } catch (e) {
+      console.error('Supabase error', e);
+    }
+  }
+  
+  if (typeof window !== 'undefined') {
+    return JSON.parse(localStorage.getItem(`biblia_ai_verse_history_${userId}`) || '[]');
+  }
+  return [];
+}
+
+export async function fetchAndCacheChapter(bookId: string, bookName: string, chapter: number): Promise<{ reference: string; verses: { book_id: string; book_name: string; chapter: number; verse: number; text: string }[]; text: string }> {
+  // Check cache first
+  const cached = await getChapterCache(bookId, chapter);
+  if (cached) return cached as { reference: string; verses: { book_id: string; book_name: string; chapter: number; verse: number; text: string }[]; text: string };
+
+  const url = `https://bible-api.com/${encodeURIComponent(`${bookName} ${chapter}`)}?translation=almeida`;
+  let res = await fetch(url);
+  
+  if (!res.ok) {
+    // Try English ID as fallback
+    const fallbackUrl = `https://bible-api.com/${encodeURIComponent(`${bookId} ${chapter}`)}?translation=almeida`;
+    res = await fetch(fallbackUrl);
+  }
+
+  if (!res.ok) {
+    // Try without translation parameter as last resort
+    const lastResortUrl = `https://bible-api.com/${encodeURIComponent(`${bookId} ${chapter}`)}`;
+    res = await fetch(lastResortUrl);
+  }
+
+  if (res.ok) {
+    const json = await res.json();
+    await saveChapterCache(bookId, chapter, json);
+    return json;
+  }
+  
+  throw new Error('Falha ao carregar o capítulo');
 }

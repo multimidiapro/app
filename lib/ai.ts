@@ -6,9 +6,10 @@ function getAI() {
   if (!aiInstance) {
     const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
     if (!apiKey) {
-      console.warn('NEXT_PUBLIC_GEMINI_API_KEY is not set. AI features will fail.');
+      console.error('ERRO: NEXT_PUBLIC_GEMINI_API_KEY não está configurada nas Variáveis de Ambiente.');
+      throw new Error('Configuração da API Gemini ausente. Por favor, configure NEXT_PUBLIC_GEMINI_API_KEY.');
     }
-    aiInstance = new GoogleGenAI({ apiKey: apiKey || 'dummy-key' });
+    aiInstance = new GoogleGenAI({ apiKey });
   }
   return aiInstance;
 }

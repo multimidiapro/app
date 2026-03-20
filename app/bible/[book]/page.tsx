@@ -5,8 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, BookOpen, Loader2, CheckCircle } from 'lucide-react';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { supabase } from '@/lib/supabase';
 import { BIBLE_METADATA } from '@/lib/bible-metadata';
+
+import { getReadingHistory, ReadingHistory, fetchAndCacheChapter } from '@/lib/db';
 
 export default function BookSelectionPage() {
   const router = useRouter();
@@ -25,18 +26,12 @@ export default function BookSelectionPage() {
 
   useEffect(() => {
     const loadChapterProgress = async () => {
-      if (!supabase || !bookInfo) return;
+      if (!bookInfo) return;
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const history = await getReadingHistory();
+      const bookHistory = history.filter((h: ReadingHistory) => h.book_id === bookInfo.id);
 
-      const { data: history } = await supabase
-        .from('reading_history')
-        .select('chapter, verse')
-        .eq('user_id', session.user.id)
-        .eq('book_id', bookInfo.id);
-
-      if (history) {
+      if (bookHistory) {
         const progressMap: Record<number, number> = {};
         const readMap: Record<number, number[]> = {};
         const bookMeta = BIBLE_METADATA[bookInfo.id];
@@ -44,9 +39,14 @@ export default function BookSelectionPage() {
         if (bookMeta) {
           bookMeta.forEach((totalVerses, idx) => {
             const chapterNum = idx + 1;
-            const chapterRead = history.filter(h => h.chapter === chapterNum).map(h => h.verse);
-            readMap[chapterNum] = chapterRead;
-            progressMap[chapterNum] = Math.round((chapterRead.length / totalVerses) * 100);
+            const chapterRead = bookHistory
+              .filter((h: ReadingHistory) => h.chapter === chapterNum && h.verse !== null && h.verse !== undefined)
+              .map((h: ReadingHistory) => h.verse as number);
+            
+            // Use Set to avoid duplicates if any
+            const uniqueRead = Array.from(new Set(chapterRead));
+            readMap[chapterNum] = uniqueRead;
+            progressMap[chapterNum] = Math.min(100, Math.round((uniqueRead.length / totalVerses) * 100));
           });
         }
         setChapterProgress(progressMap);
@@ -55,6 +55,9 @@ export default function BookSelectionPage() {
     };
 
     loadChapterProgress();
+    if (bookInfo) {
+      fetchAndCacheChapter(bookInfo.id, bookInfo.name, 1).catch(() => {});
+    }
   }, [bookInfo]);
 
   if (!bookInfo) return <div className="p-8 text-center">Livro não encontrado.</div>;
@@ -63,24 +66,11 @@ export default function BookSelectionPage() {
     setSelectedChapter(chapter);
     setLoadingVerses(true);
     try {
-      // Try Portuguese name first with encoding
-      const url = `https://bible-api.com/${encodeURIComponent(`${bookInfo.name} ${chapter}`)}?translation=almeida`;
-      let res = await fetch(url);
-      
-      if (!res.ok) {
-        // Try English ID as fallback
-        const fallbackUrl = `https://bible-api.com/${encodeURIComponent(`${bookInfo.id} ${chapter}`)}?translation=almeida`;
-        res = await fetch(fallbackUrl);
-      }
-
-      if (res.ok) {
-        const data = await res.json();
-        setVersesCount(data.verses.length);
-      } else {
-        // fallback if fetch fails
-        router.push(`/bible/${bookId}/${chapter}`);
-      }
-    } catch {
+      const data = await fetchAndCacheChapter(bookId, bookInfo.name, chapter);
+      setVersesCount(data.verses.length);
+    } catch (err) {
+      console.error('Error fetching chapter for preview:', err);
+      // fallback if fetch fails
       router.push(`/bible/${bookId}/${chapter}`);
     } finally {
       setLoadingVerses(false);
@@ -118,17 +108,22 @@ export default function BookSelectionPage() {
                 <button
                   key={chapter}
                   onClick={() => handleChapterSelect(chapter)}
-                  className="aspect-square flex flex-col items-center justify-center rounded-xl bg-secondary hover:bg-primary hover:text-primary-foreground transition-colors font-medium text-foreground relative overflow-hidden group"
+                  className="aspect-square flex flex-col items-center justify-center rounded-xl bg-secondary hover:bg-primary hover:text-primary-foreground transition-all font-medium text-foreground relative overflow-hidden group border border-transparent hover:border-primary/20"
                 >
-                  <span className="text-base md:text-lg relative z-10">{chapter}</span>
-                  {chapterProgress[chapter] > 0 && (
-                    <span className="text-[10px] text-muted-foreground group-hover:text-primary-foreground/80 relative z-10">
-                      {chapterProgress[chapter]}%
-                    </span>
-                  )}
+                  <span className="text-base md:text-lg relative z-10 mb-1">{chapter}</span>
+                  <span className={`text-[9px] md:text-[10px] relative z-10 transition-colors ${
+                    chapterProgress[chapter] > 0 
+                      ? 'text-primary font-bold group-hover:text-primary-foreground' 
+                      : 'text-muted-foreground group-hover:text-primary-foreground/60'
+                  }`}>
+                    {chapterProgress[chapter] || 0}%
+                  </span>
+                  <div 
+                    className="absolute bottom-0 left-0 h-1 bg-primary/20 group-hover:bg-primary-foreground/10 w-full" 
+                  />
                   {chapterProgress[chapter] > 0 && (
                     <div 
-                      className="absolute bottom-0 left-0 h-1 bg-primary group-hover:bg-primary-foreground/30 transition-all" 
+                      className="absolute bottom-0 left-0 h-1 bg-primary group-hover:bg-primary-foreground/40 transition-all duration-500" 
                       style={{ width: `${chapterProgress[chapter]}%` }}
                     />
                   )}

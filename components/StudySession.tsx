@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams, useParams } from 'next/navigation';
-import { Send, ArrowLeft, Share2, Check, Menu, X, Search, Clock, AlertCircle, Plus, Edit2, Trash2 } from 'lucide-react';
+import { Send, ArrowLeft, Share2, Check, Menu, X, Search, Clock, AlertCircle, Plus, Edit2, Trash2, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import LZString from 'lz-string';
 import { generateBibleStudy } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
-import { getStudies, deleteStudy, updateStudyTitle, getStudyMessages, saveStudyMessage, type StudyHistory } from '@/lib/db';
+import { getStudies, deleteStudy, updateStudyTitle, getStudyMessages, saveStudyMessage, copyStudy, type StudyHistory } from '@/lib/db';
+import { useAuth } from '@/hooks/useAuth';
 
 type Message = {
   id: string;
@@ -20,11 +21,13 @@ export default function StudySession() {
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const id = params.id as string;
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSharedView, setIsSharedView] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -168,12 +171,20 @@ export default function StudySession() {
   const handleShare = () => {
     const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(messages));
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const url = `${baseUrl}/study/${id}?share=${compressed}`;
+    const url = `${baseUrl}/study/${id}?share=${compressed}&action=copy`;
+    const shareText = `Confira meu estudo bíblico no IA Bíblia: ${url}\n\nCadastre-se para iniciar seus próprios estudos e acompanhar seu progresso bíblico! ✨`;
     
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    if (navigator.share) {
+      navigator.share({
+        title: 'Meu Estudo Bíblico - IA Bíblia',
+        text: shareText,
+      }).catch(console.error);
+    } else {
+      navigator.clipboard.writeText(shareText).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    }
   };
 
   const handleSaveTitle = async () => {
@@ -214,6 +225,31 @@ export default function StudySession() {
       if (studyId === id) {
         router.push('/');
       }
+    }
+  };
+
+  const handleCopyStudy = async () => {
+    if (!user) {
+      // If not logged in, redirect to login with a return path
+      const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(messages));
+      router.push(`/?share=${compressed}&action=copy`);
+      return;
+    }
+
+    setIsCopying(true);
+    try {
+      const title = history.find(h => h.id === id)?.title || 'Estudo Bíblico';
+      const dbMessages = messages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
+      const newId = await copyStudy(title, dbMessages);
+      router.push(`/study/${newId}`);
+    } catch (error) {
+      console.error('Failed to copy study', error);
+      alert('Erro ao copiar estudo. Tente novamente.');
+    } finally {
+      setIsCopying(false);
     }
   };
 
@@ -469,7 +505,13 @@ export default function StudySession() {
                 <p className="text-base md:text-lg">{msg.text}</p>
               ) : (
                 <div className="markdown-body prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-serif prose-a:text-primary text-sm md:text-base">
-                  <ReactMarkdown>{linkifyBibleReferencesMarkdown(msg.text)}</ReactMarkdown>
+                  <ReactMarkdown
+                    components={{
+                      strong: ({...props}) => <strong className="text-primary font-bold" {...props} />
+                    }}
+                  >
+                    {linkifyBibleReferencesMarkdown(msg.text)}
+                  </ReactMarkdown>
                 </div>
               )}
             </div>
@@ -516,13 +558,23 @@ export default function StudySession() {
       
       {isSharedView && (
         <footer className="p-6 bg-card border-t border-border text-center">
-          <p className="text-muted-foreground mb-4">Você está visualizando um estudo compartilhado.</p>
-          <button
-            onClick={() => router.push('/')}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors shadow-md shadow-primary/20"
-          >
-            Iniciar meu próprio estudo
-          </button>
+          <p className="text-muted-foreground mb-4 font-medium">Você está visualizando um estudo compartilhado.</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={handleCopyStudy}
+              disabled={isCopying}
+              className="w-full sm:w-auto px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2"
+            >
+              {isCopying ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+              {user ? 'Salvar em meus estudos' : 'Cadastre-se para continuar este estudo'}
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="w-full sm:w-auto px-8 py-3 bg-secondary text-foreground rounded-xl font-medium hover:bg-secondary/80 transition-colors"
+            >
+              Ir para o início
+            </button>
+          </div>
         </footer>
       )}
       </div>
