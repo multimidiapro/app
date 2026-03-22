@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Search, BookOpen, Clock, ChevronRight, User, Lock, Calendar, X, MessageSquare, Heart } from 'lucide-react';
 import { generateVerseOfTheDay } from '@/lib/ai';
-import { ThemeToggle } from '@/components/theme-toggle';
 import { formatBibleText } from '@/lib/bible-utils';
 import { getStudies, saveStudy, getGoals, saveSearchHistory, getVerseOfTheDayForDate, saveVerseOfTheDayForDate, getVerseHistory, copyStudy, type StudyHistory, getProfile, type Profile } from '@/lib/db';
 import { ShareVerse } from '@/components/ShareVerse';
@@ -221,74 +220,56 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen max-w-4xl mx-auto px-4 py-4 md:py-8 flex flex-col gap-8 md:gap-12 relative z-10">
-      <header className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
-          <h1 className="font-outfit text-2xl md:text-3xl font-bold tracking-tight text-foreground">IA Bíblia</h1>
-          <div className="flex items-center gap-2 sm:hidden">
-            <button
-              onClick={() => setShowFeedback(true)}
-              className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="Sugestões ou Bugs"
-            >
-              <MessageSquare size={20} />
-            </button>
-            <button
-              onClick={() => setShowDonation(true)}
-              className="p-2 rounded-full hover:bg-secondary transition-colors text-red-500 hover:text-red-600"
-              aria-label="Doar"
-            >
-              <Heart size={20} />
-            </button>
-            <ThemeToggle />
-          </div>
-        </div>
-        <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-center sm:justify-end overflow-x-auto pb-2 sm:pb-0">
+      <header className="flex items-center justify-between gap-4">
+        <h1 className="font-outfit text-2xl md:text-3xl font-bold tracking-tight text-foreground">IA Bíblia</h1>
+        
+        <div className="flex items-center gap-2 md:gap-4">
           <button 
             onClick={() => router.push('/bible')}
-            className="text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 md:gap-2 whitespace-nowrap"
+            className="p-2 md:px-4 md:py-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-primary flex items-center gap-2 whitespace-nowrap"
+            aria-label="Bíblia"
           >
-            <BookOpen size={16} />
-            <span>Bíblia</span>
+            <BookOpen size={20} className="md:w-4 md:h-4" />
+            <span className="hidden md:inline text-sm font-medium">Bíblia</span>
           </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowFeedback(true)}
-              className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
-              aria-label="Sugestões ou Bugs"
+          <button
+            onClick={() => setShowFeedback(true)}
+            className="p-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+            aria-label="Sugestões ou Bugs"
+          >
+            <MessageSquare size={20} />
+          </button>
+
+          <button
+            onClick={() => setShowDonation(true)}
+            className="p-2 rounded-full hover:bg-secondary transition-colors text-red-500 hover:text-red-600"
+            aria-label="Doar"
+          >
+            <Heart size={20} />
+          </button>
+
+          {user ? (
+            <button 
+              onClick={() => setShowProfile(true)}
+              className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
             >
-              <MessageSquare size={20} />
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-primary/20">
+                {profile?.photo_url ? (
+                  <Image src={profile.photo_url} alt="Profile" width={32} height={32} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <User size={16} />
+                )}
+              </div>
             </button>
-            <button
-              onClick={() => setShowDonation(true)}
-              className="p-2 rounded-full hover:bg-secondary transition-colors text-red-500 hover:text-red-600"
-              aria-label="Doar"
+          ) : (
+            <button 
+              onClick={() => router.push('/login')}
+              className="text-xs md:text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition-colors whitespace-nowrap"
             >
-              <Heart size={20} />
+              Entrar
             </button>
-            <ThemeToggle />
-            {user ? (
-              <button 
-                onClick={() => setShowProfile(true)}
-                className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-              >
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-primary/20">
-                  {profile?.photo_url ? (
-                    <Image src={profile.photo_url} alt="Profile" width={32} height={32} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                  ) : (
-                    <User size={16} />
-                  )}
-                </div>
-              </button>
-            ) : (
-              <button 
-                onClick={() => router.push('/login')}
-                className="text-xs md:text-sm font-medium bg-primary/10 text-primary px-4 py-2 rounded-full hover:bg-primary/20 transition-colors whitespace-nowrap"
-              >
-                Entrar
-              </button>
-            )}
-          </div>
+          )}
         </div>
       </header>
 
@@ -418,6 +399,18 @@ export default function Dashboard() {
                   <ShareVerse 
                     text={verse.text} 
                     reference={verse.reference} 
+                    {...(() => {
+                      const parts = verse.reference.split(' ');
+                      const lastPart = parts.pop();
+                      const bookName = parts.join(' ');
+                      const [chapter, verseNum] = lastPart?.split(':').map(Number) || [1, 1];
+                      const book = BIBLE_BOOKS.find(b => b.name === bookName);
+                      return {
+                        bookId: book?.id || 'joao',
+                        chapter: chapter || 1,
+                        verse: verseNum || 1
+                      };
+                    })()}
                     className="text-primary hover:underline"
                   />
                 </div>

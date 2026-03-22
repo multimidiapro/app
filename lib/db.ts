@@ -454,7 +454,7 @@ export async function saveGeneratedImage(bookId: string, chapter: number, verse:
   
   if (supabase) {
     try {
-      await supabase
+      const { data, error } = await supabase
         .from('generated_images')
         .insert({ 
           user_id: userId, 
@@ -464,11 +464,33 @@ export async function saveGeneratedImage(bookId: string, chapter: number, verse:
           image_url: imageUrl,
           prompt,
           created_at: new Date().toISOString()
-        });
+        })
+        .select('id')
+        .single();
+        
+      if (!error && data) return data.id;
     } catch (e) {
       console.error('Supabase error', e);
     }
   }
+  return null;
+}
+
+export async function getGeneratedImageById(id: string) {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('generated_images')
+        .select('*')
+        .eq('id', id)
+        .single();
+        
+      if (!error && data) return data;
+    } catch (e) {
+      console.error('Supabase error', e);
+    }
+  }
+  return null;
 }
 
 export async function getAllHighlights(): Promise<(Highlight & { book_id: string; chapter: number })[]> {

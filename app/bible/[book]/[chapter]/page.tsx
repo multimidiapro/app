@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, ChevronLeft, ChevronRight, X, MessageSquare, Eraser, BookOpen, CheckCircle2, CheckCircle } from 'lucide-react';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
+import { ArrowLeft, ChevronLeft, ChevronRight, X, MessageSquare, Eraser, BookOpen, CheckCircle2, CheckCircle, Download } from 'lucide-react';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { generateVerseExplanation, generateBibleText } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatBibleText, linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
-import { getHighlights, saveHighlight, removeHighlight, saveStudy, saveReadingHistory, getVerseReadHistory, markChapterCompleted, removeReadingHistory, fetchAndCacheChapter } from '@/lib/db';
+import { getHighlights, saveHighlight, removeHighlight, saveStudy, saveReadingHistory, getVerseReadHistory, markChapterCompleted, removeReadingHistory, fetchAndCacheChapter, getGeneratedImageById } from '@/lib/db';
 import { ShareVerse } from '@/components/ShareVerse';
 import ReactMarkdown from 'react-markdown';
+import Image from 'next/image';
 
 type Verse = {
   book_id: string;
@@ -39,10 +40,15 @@ type Explanation = {
 export default function ChapterPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const bookId = decodeURIComponent(params.book as string);
   const chapterNum = parseInt(params.chapter as string);
+  const sharedImgId = searchParams.get('img_id');
+  const sharedVerse = searchParams.get('v');
 
   const [data, setData] = useState<ChapterData | null>(null);
+  const [sharedImageUrl, setSharedImageUrl] = useState<string | null>(null);
+  const [showSharedImage, setShowSharedImage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -59,6 +65,17 @@ export default function ChapterPage() {
     b.id === bookId || 
     b.id.replace(/\s+/g, '') === bookId.replace(/\s+/g, '')
   );
+
+  useEffect(() => {
+    if (sharedImgId) {
+      getGeneratedImageById(sharedImgId).then(img => {
+        if (img) {
+          setSharedImageUrl(img.image_url);
+          setShowSharedImage(true);
+        }
+      });
+    }
+  }, [sharedImgId]);
 
   useEffect(() => {
     const fetchChapter = async () => {
@@ -379,6 +396,9 @@ export default function ChapterPage() {
             <ShareVerse 
               text={selectedText} 
               reference={selectedReference} 
+              bookId={bookId}
+              chapter={chapterNum}
+              verse={sortedSelectedVerses[0]}
               className="flex-1 md:flex-none justify-center py-2 md:py-0 text-primary hover:text-primary/80"
             />
             <button 
@@ -387,6 +407,60 @@ export default function ChapterPage() {
             >
               <BookOpen size={18}/> Estudar {selectedVerses.length} {selectedVerses.length === 1 ? 'versículo' : 'versículos'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Shared Image Modal */}
+      {showSharedImage && sharedImageUrl && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="relative w-full max-w-lg aspect-[9/16] bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center justify-center p-12 text-white text-center">
+            <button 
+              onClick={() => setShowSharedImage(false)}
+              className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/60 rounded-full text-white z-20 transition-colors"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="absolute inset-0 z-0">
+              <Image 
+                src={sharedImageUrl} 
+                alt="Shared Background" 
+                fill
+                className="object-cover blur-sm scale-110 opacity-60"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-black/40"></div>
+            </div>
+
+            <div className="relative z-10 flex flex-col items-center gap-8">
+              <div className="text-5xl text-primary/80 font-serif">&quot;</div>
+              <p className="text-3xl md:text-4xl leading-tight font-medium drop-shadow-lg">
+                {data?.verses.find(v => v.verse === parseInt(sharedVerse || '0'))?.text || 'Carregando...'}
+              </p>
+              <div className="w-24 h-1 bg-primary/60 rounded-full shadow-lg"></div>
+              <p className="text-xl font-bold text-primary tracking-wide font-sans drop-shadow-md">
+                {bookInfo.name} {chapterNum}:{sharedVerse}
+              </p>
+            </div>
+
+            <div className="absolute bottom-12 left-0 right-0 text-center text-xl text-white/70 font-sans tracking-[0.2em] uppercase font-bold drop-shadow-md">
+              IA Bíblia
+            </div>
+
+            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4 z-20">
+              <button 
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = sharedImageUrl;
+                  link.download = `versiculo-${bookId}-${chapterNum}-${sharedVerse}.png`;
+                  link.click();
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-primary/20 hover:bg-primary/40 rounded-full text-xs font-bold transition-colors"
+              >
+                <Download size={14} /> Baixar Imagem
+              </button>
+            </div>
           </div>
         </div>
       )}

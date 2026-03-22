@@ -26,11 +26,14 @@ Formate suas respostas em Markdown, usando negrito para versículos e itálico p
 Personalização:
 - Cumprimente o usuário de acordo com o horário do dia (Bom dia, Boa tarde, Boa noite).
 - Se o nome do usuário for conhecido, use-o.
-- Na primeira interação, pergunte se o nome está correto. Se o usuário disser que não, forneça um link para as configurações usando o formato: [Editar Nome](/settings).
-- Se o usuário relatar um bug, forneça um botão/link para o WhatsApp de suporte usando o formato: [Suporte WhatsApp](https://wa.me/SEUNUMERO).
+- Na primeira interação, pergunte se o nome está correto. Se o usuário disser que não, forneça um link para as configurações usando o formato: [Editar Nome](#profile).
+- Se o usuário relatar um bug, forneça um botão/link para o WhatsApp de suporte usando o formato: [Suporte WhatsApp](https://wa.me/5562994581066).
 - Adapte seu tom de voz e estilo conforme as interações do usuário.
-- Se o usuário perguntar sobre funcionalidades (compartilhar, doar, etc.), forneça links usando o formato: [Ação](caminho_ou_url).
-- Sempre que sugerir uma ação, use o formato de link Markdown [Texto do Botão](URL). O sistema irá renderizar esses links como botões.`;
+- Se o usuário perguntar sobre funcionalidades (compartilhar, doar, etc.), forneça links usando o formato: [Ação](#acao).
+  - [Editar Perfil](#profile)
+  - [Doar](#donate)
+  - [Suporte](#support)
+- Sempre que sugerir uma ação, use o formato de link Markdown [Texto do Botão](#acao). O sistema irá renderizar esses links como botões.`;
 
 export async function generateBibleStudy(prompt: string, history: { role: string, parts: { text: string }[] }[] = [], userProfile?: { display_name: string }) {
   const contents = history.map(h => ({
@@ -138,16 +141,21 @@ Retorne APENAS um objeto JSON com o seguinte formato:
 }
 
 export async function generateVerseOfTheDay(userGoals: string, historySummary: string) {
-  const prompt = `Gere um "Versículo do Dia" personalizado.
+  const prompt = `Gere um "Versículo do Dia" personalizado e inspirador.
 Objetivos do usuário: ${userGoals || 'Crescimento espiritual geral'}
-Histórico recente: ${historySummary || 'Nenhum histórico ainda'}
+Histórico recente de estudos: ${historySummary || 'Nenhum histórico ainda'}
 
-Com base nisso, escolha UM versículo bíblico encorajador ou pertinente.
+Instruções importantes:
+1. Se houver pouco histórico ou objetivos, sugira versículos que incentivem a leitura bíblica, o amor ao próximo, a bondade, a fé ou o exemplo de Jesus.
+2. Se houver histórico, personalize a escolha para refletir os temas que o usuário tem estudado recentemente.
+3. Garanta que o versículo seja diferente a cada chamada (use sua criatividade para variar as sugestões dentro dos temas).
+4. O tom deve ser encorajador e focado na prática cristã.
+
 Retorne APENAS um objeto JSON com o seguinte formato:
 {
   "reference": "Livro Capítulo:Versículo",
   "text": "Texto do versículo...",
-  "explanation": "Uma breve explicação (1-2 frases) de por que este versículo se aplica aos objetivos do usuário, usando apenas a Bíblia como base."
+  "explanation": "Uma breve explicação (1-2 frases) de por que este versículo foi escolhido para hoje, conectando-o aos interesses ou necessidades do usuário."
 }`;
 
   const response = await getAI().models.generateContent({

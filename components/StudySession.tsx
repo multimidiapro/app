@@ -10,6 +10,11 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
 import { getStudies, deleteStudy, updateStudyTitle, getStudyMessages, saveStudyMessage, copyStudy, getProfile, type StudyHistory, type Profile } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
+import { ProfileMenu } from '@/components/ProfileMenu';
+import { FeedbackModal } from '@/components/FeedbackModal';
+import { DonationModal } from '@/components/DonationModal';
+import Image from 'next/image';
+import { User } from 'lucide-react';
 
 type Message = {
   id: string;
@@ -39,9 +44,61 @@ export default function StudySession() {
   const [editTitle, setEditTitle] = useState('');
   const [editingSidebarId, setEditingSidebarId] = useState<string | null>(null);
   const [editingSidebarTitle, setEditingSidebarTitle] = useState('');
+  const [showProfile, setShowProfile] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [showDonation, setShowDonation] = useState(false);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
+
+  const handleHashLink = (href: string) => {
+    if (href === '#profile') {
+      setShowProfile(true);
+      return true;
+    }
+    if (href === '#donation' || href === '#donate') {
+      setShowDonation(true);
+      return true;
+    }
+    if (href === '#feedback' || href === '#support') {
+      setShowFeedback(true);
+      return true;
+    }
+    return false;
+  };
+
+  const MarkdownContent = ({ content }: { content: string }) => {
+    return (
+      <ReactMarkdown
+        components={{
+          a: ({ ...props }) => {
+            const isHash = props.href?.startsWith('#');
+            if (isHash) {
+              return (
+                <button
+                  onClick={() => handleHashLink(props.href!)}
+                  className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-sm text-sm font-medium no-underline my-1"
+                >
+                  {props.children}
+                </button>
+              );
+            }
+            return (
+              <a 
+                {...props} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-sm text-sm font-medium no-underline my-1"
+              />
+            );
+          },
+          strong: ({...props}) => <strong className="text-primary font-bold" {...props} />
+        }}
+      >
+        {linkifyBibleReferencesMarkdown(content)}
+      </ReactMarkdown>
+    );
+  };
 
   // Load history on mount
   useEffect(() => {
@@ -461,6 +518,20 @@ export default function StudySession() {
           
           <div className="flex items-center gap-1 md:gap-2">
             <ThemeToggle />
+            {user && (
+              <button 
+                onClick={() => setShowProfile(true)}
+                className="flex items-center gap-2 text-xs md:text-sm font-medium text-muted-foreground hover:text-primary transition-colors p-1.5 hover:bg-secondary rounded-full"
+              >
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary overflow-hidden border border-primary/20">
+                  {profile?.photo_url ? (
+                    <Image src={profile.photo_url} alt="Profile" width={32} height={32} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <User size={16} />
+                  )}
+                </div>
+              </button>
+            )}
             <button
               onClick={handleShare}
               className="flex items-center gap-2 px-2 md:px-4 py-2 bg-secondary hover:bg-secondary/80 text-foreground rounded-full text-xs md:text-sm font-medium transition-colors border border-border"
@@ -523,19 +594,7 @@ export default function StudySession() {
                 <p className="text-base md:text-lg">{msg.text}</p>
               ) : (
                 <div className="markdown-body prose prose-sm dark:prose-invert max-w-none prose-p:leading-relaxed prose-headings:font-serif prose-a:text-primary text-sm md:text-base">
-                  <ReactMarkdown
-                    components={{
-                      a: ({ ...props }) => (
-                        <a
-                          {...props}
-                          className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors shadow-sm text-sm font-medium no-underline my-1"
-                        />
-                      ),
-                      strong: ({...props}) => <strong className="text-primary font-bold" {...props} />
-                    }}
-                  >
-                    {linkifyBibleReferencesMarkdown(msg.text)}
-                  </ReactMarkdown>
+                  <MarkdownContent content={msg.text} />
                 </div>
               )}
             </div>
@@ -601,6 +660,10 @@ export default function StudySession() {
           </div>
         </footer>
       )}
+      {/* Modals */}
+      <ProfileMenu isOpen={showProfile} onClose={() => setShowProfile(false)} />
+      <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
+      <DonationModal isOpen={showDonation} onClose={() => setShowDonation(false)} />
       </div>
     </div>
   );

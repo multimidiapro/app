@@ -1,22 +1,38 @@
-import { useState, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Share2, Loader2, Image as ImageIcon, Type, X } from 'lucide-react';
-import * as htmlToImage from 'html-to-image';
 import { GoogleGenAI } from "@google/genai";
+import { saveGeneratedImage, getGeneratedImages } from '@/lib/db';
 
 interface ShareVerseProps {
   text: string;
   reference: string;
+  bookId?: string;
+  chapter?: number;
+  verse?: number;
   className?: string;
 }
 
-export function ShareVerse({ text, reference, className = '' }: ShareVerseProps) {
+export function ShareVerse({ text, reference, bookId, chapter, verse, className = '' }: ShareVerseProps) {
   const [isSharing, setIsSharing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
-  const [backgroundImage, setBackgroundImage] = useState<string | null>(null);
+  const [backgroundImage, setBackgroundImage] = useState<{ url: string; id: string } | null>(null);
   const [showOptions, setShowOptions] = useState(false);
-  const nodeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Check if image already exists in DB
+    const checkExistingImage = async () => {
+      if (bookId && chapter && verse) {
+        const images = await getGeneratedImages(bookId, chapter, verse);
+        if (images && images.length > 0) {
+          setBackgroundImage({ url: images[0].image_url, id: images[0].id });
+        }
+      }
+    };
+    checkExistingImage();
+  }, [bookId, chapter, verse]);
 
   const generateContextualImage = async () => {
+    if (!bookId || !chapter || !verse) return null;
     setIsGeneratingImage(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '' });
@@ -37,8 +53,13 @@ export function ShareVerse({ text, reference, className = '' }: ShareVerseProps)
       for (const part of response.candidates?.[0]?.content?.parts || []) {
         if (part.inlineData) {
           const base64Data = part.inlineData.data;
-          setBackgroundImage(`data:image/png;base64,${base64Data}`);
-          break;
+          const imageUrl = `data:image/png;base64,${base64Data}`;
+          // Save to DB for future use and get ID
+          const imageId = await saveGeneratedImage(bookId, chapter, verse, imageUrl, prompt);
+          if (imageId) {
+            setBackgroundImage({ url: imageUrl, id: imageId });
+            return { url: imageUrl, id: imageId };
+          }
         }
       }
     } catch (error) {
@@ -46,51 +67,36 @@ export function ShareVerse({ text, reference, className = '' }: ShareVerseProps)
     } finally {
       setIsGeneratingImage(false);
     }
+    return null;
   };
 
-  const handleShareImage = async () => {
+  const handleShareWithImage = async () => {
+    if (!bookId || !chapter || !verse) return;
     if (isSharing) return;
     setIsSharing(true);
 
     try {
-      if (!backgroundImage) {
-        await generateContextualImage();
+      let currentImage = backgroundImage;
+      if (!currentImage) {
+        currentImage = await generateContextualImage();
       }
 
-      // Wait a bit for image to render in the hidden div
-      await new Promise(resolve => setTimeout(resolve, 500));
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const shareUrl = `${baseUrl}/bible/${bookId}/${chapter}?v=${verse}${currentImage ? `&img_id=${currentImage.id}` : ''}`;
+      
+      const shareText = `"${text}" - ${reference}\n\nVeja este versículo com uma imagem inspiradora no IA Bíblia: ${shareUrl}\n\nCadastre-se para progredir na sua jornada bíblica!`;
 
-      if (nodeRef.current) {
-        nodeRef.current.style.display = 'flex';
-        
-        const dataUrl = await htmlToImage.toPng(nodeRef.current, {
-          quality: 0.95,
-          pixelRatio: 2,
+      if (navigator.share) {
+        await navigator.share({
+          title: reference,
+          text: shareText,
         });
-        
-        nodeRef.current.style.display = 'none';
-
-        const blob = await (await fetch(dataUrl)).blob();
-        const file = new File([blob], 'versiculo.png', { type: 'image/png' });
-
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-          const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-          const whatsappMsg = `"${text}" - ${reference}\n\nVeja mais no IA Bíblia e comece seus estudos: ${baseUrl}\n\nCadastre-se para progredir na sua jornada bíblica!`;
-          
-          await navigator.share({
-            title: reference,
-            text: whatsappMsg,
-            files: [file],
-          });
-        } else {
-          const link = document.createElement('a');
-          link.download = `versiculo-${reference.replace(/\s+/g, '-')}.png`;
-          link.href = dataUrl;
-          link.click();
-        }
+      } else {
+        await navigator.clipboard.writeText(shareText);
+        alert('Link de compartilhamento copiado!');
       }
     } catch (error) {
-      console.error('Error sharing image:', error);
+      console.error('Error sharing:', error);
     } finally {
       setIsSharing(false);
       setShowOptions(false);
@@ -99,7 +105,10 @@ export function ShareVerse({ text, reference, className = '' }: ShareVerseProps)
 
   const shareAsText = async () => {
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
-    const shareText = `"${text}"\n\n- ${reference}\n\nVeja este versículo no IA Bíblia: ${baseUrl}\n\nCadastre-se agora para iniciar seus próprios estudos e acompanhar seu progresso bíblico! ✨`;
+    const shareUrl = bookId && chapter && verse 
+      ? `${baseUrl}/bible/${bookId}/${chapter}?v=${verse}`
+      : baseUrl;
+    const shareText = `"${text}"\n\n- ${reference}\n\nVeja este versículo no IA Bíblia: ${shareUrl}\n\nCadastre-se agora para iniciar seus próprios estudos e acompanhar seu progresso bíblico! ✨`;
     
     if (navigator.share) {
       try {
@@ -136,18 +145,20 @@ export function ShareVerse({ text, reference, className = '' }: ShareVerseProps)
             <Type size={16} className="text-primary" />
             <span>Apenas Texto</span>
           </button>
-          <button
-            onClick={handleShareImage}
-            disabled={isSharing || isGeneratingImage}
-            className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-secondary transition-colors text-left disabled:opacity-50"
-          >
-            {isSharing || isGeneratingImage ? (
-              <Loader2 size={16} className="animate-spin text-primary" />
-            ) : (
-              <ImageIcon size={16} className="text-primary" />
-            )}
-            <span>Gerar Imagem</span>
-          </button>
+          {bookId && chapter && verse && (
+            <button
+              onClick={handleShareWithImage}
+              disabled={isSharing || isGeneratingImage}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-foreground hover:bg-secondary transition-colors text-left disabled:opacity-50"
+            >
+              {isSharing || isGeneratingImage ? (
+                <Loader2 size={16} className="animate-spin text-primary" />
+              ) : (
+                <ImageIcon size={16} className="text-primary" />
+              )}
+              <span>Com Imagem</span>
+            </button>
+          )}
           <button
             onClick={() => setShowOptions(false)}
             className="w-full flex items-center gap-3 px-4 py-2 text-xs text-muted-foreground hover:bg-secondary transition-colors text-left border-t border-border"
@@ -157,42 +168,6 @@ export function ShareVerse({ text, reference, className = '' }: ShareVerseProps)
           </button>
         </div>
       )}
-
-      {/* Hidden container for image generation */}
-      <div 
-        ref={nodeRef}
-        className="fixed top-[-9999px] left-[-9999px] w-[1080px] h-[1920px] bg-slate-900 flex flex-col items-center justify-center p-20 text-white overflow-hidden"
-        style={{ display: 'none', fontFamily: 'serif' }}
-      >
-        {backgroundImage && (
-          <div className="absolute inset-0 z-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img 
-              src={backgroundImage} 
-              alt="Background" 
-              className="w-full h-full object-cover blur-md scale-110 opacity-60"
-            />
-            <div className="absolute inset-0 bg-black/40"></div>
-          </div>
-        )}
-        
-        <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-primary via-transparent to-transparent z-1"></div>
-        
-        <div className="relative z-10 flex flex-col items-center justify-center text-center gap-12 max-w-[850px]">
-          <div className="text-7xl text-primary/80 font-serif">&quot;</div>
-          <p className="text-6xl leading-tight font-medium drop-shadow-lg">
-            {text}
-          </p>
-          <div className="w-32 h-1.5 bg-primary/60 rounded-full shadow-lg"></div>
-          <p className="text-4xl font-bold text-primary tracking-wide font-sans drop-shadow-md">
-            {reference}
-          </p>
-        </div>
-
-        <div className="absolute bottom-16 left-0 right-0 text-center text-3xl text-white/70 font-sans tracking-[0.2em] uppercase font-bold drop-shadow-md">
-          IA Bíblia
-        </div>
-      </div>
     </div>
   );
 }

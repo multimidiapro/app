@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download, Crown } from 'lucide-react';
+import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download, Crown, Moon, Sun } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getProfile, updateProfile, uploadProfileImage, type Profile, getStudies, getAllHighlights, type StudyHistory, type Highlight } from '@/lib/db';
 import Cropper, { type Point, type Area } from 'react-easy-crop';
 import { useRouter } from 'next/navigation';
 import { FeedbackModal } from './FeedbackModal';
+import { ThemeToggle } from './theme-toggle';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -415,6 +416,15 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                   <div className="flex flex-col gap-4 animate-in fade-in duration-300">
                     <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Configurações</h4>
                     <div className="flex flex-col gap-2">
+                      <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-xl border border-border">
+                        <div className="flex items-center gap-3">
+                          <Sun size={18} className="text-primary dark:hidden" />
+                          <Moon size={18} className="text-primary hidden dark:block" />
+                          <span className="text-sm font-medium">Tema</span>
+                        </div>
+                        <ThemeToggle />
+                      </div>
+
                       {canInstall && (
                         <button 
                           onClick={handleInstallApp}
