@@ -688,6 +688,7 @@ export type Profile = {
   photo_url: string | null;
   goals: string;
   is_contributor?: boolean;
+  is_admin?: boolean;
 };
 
 export async function getProfile(): Promise<Profile | null> {
@@ -824,6 +825,97 @@ export async function getGoals(): Promise<string> {
 
 export async function saveGoals(goals: string) {
   await updateProfile({ goals });
+}
+
+export type AppNotification = {
+  id: string;
+  title: string;
+  message: string;
+  type: 'update' | 'event' | 'admin' | 'info';
+  date: string;
+  is_read?: boolean;
+  link?: string;
+};
+
+export async function getNotifications(): Promise<AppNotification[]> {
+  const userId = await getUserId();
+  
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .or(`user_id.eq.${userId},user_id.is.null`)
+        .order('date', { ascending: false });
+        
+      if (!error && data) return data;
+    } catch (e) {
+      console.error('Supabase error getting notifications', e);
+    }
+  }
+  
+  if (typeof window !== 'undefined') {
+    return JSON.parse(localStorage.getItem('biblia_ai_notifications') || '[]');
+  }
+  return [];
+}
+
+export async function markNotificationAsRead(id: string) {
+  const userId = await getUserId();
+  
+  if (supabase) {
+    try {
+      await supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', id)
+        .eq('user_id', userId);
+    } catch (e) {
+      console.error('Supabase error marking notification as read', e);
+    }
+  }
+  
+  if (typeof window !== 'undefined') {
+    const notifications = JSON.parse(localStorage.getItem('biblia_ai_notifications') || '[]');
+    const updated = notifications.map((n: AppNotification) => 
+      n.id === id ? { ...n, is_read: true } : n
+    );
+    localStorage.setItem('biblia_ai_notifications', JSON.stringify(updated));
+  }
+}
+
+export async function sendNotification(notification: Omit<AppNotification, 'id' | 'date' | 'is_read'>, targetUserId?: string) {
+  if (supabase) {
+    try {
+      await supabase
+        .from('notifications')
+        .insert({
+          ...notification,
+          user_id: targetUserId || null,
+          date: new Date().toISOString(),
+          is_read: false
+        });
+    } catch (e) {
+      console.error('Supabase error sending notification', e);
+    }
+  }
+}
+
+export async function checkAppUpdate(): Promise<{ hasUpdate: boolean; version?: string }> {
+  try {
+    const res = await fetch('/version.json', { cache: 'no-store' });
+    if (res.ok) {
+      const data = await res.json();
+      const localVersion = localStorage.getItem('biblia_ai_app_version');
+      if (localVersion && localVersion !== data.version) {
+        return { hasUpdate: true, version: data.version };
+      }
+      localStorage.setItem('biblia_ai_app_version', data.version);
+    }
+  } catch (e) {
+    console.error('Error checking for update', e);
+  }
+  return { hasUpdate: false };
 }
 
 export async function getChapterCache(bookId: string, chapter: number): Promise<unknown | null> {

@@ -13,6 +13,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { FeedbackModal } from '@/components/FeedbackModal';
 import { DonationModal } from '@/components/DonationModal';
+import { NotificationCenter } from '@/components/NotificationCenter';
 import Image from 'next/image';
 import { User } from 'lucide-react';
 
@@ -524,6 +525,7 @@ export default function StudySession() {
           
           <div className="flex items-center gap-1 md:gap-2">
             <ThemeToggle />
+            <NotificationCenter />
             {user && (
               <button 
                 onClick={() => setShowProfile(true)}

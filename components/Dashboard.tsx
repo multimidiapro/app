@@ -14,6 +14,7 @@ import LZString from 'lz-string';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { FeedbackModal } from '@/components/FeedbackModal';
 import { DonationModal } from '@/components/DonationModal';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 export default function Dashboard() {
   const router = useRouter();
@@ -248,6 +249,8 @@ export default function Dashboard() {
           >
             <Heart size={20} />
           </button>
+
+          <NotificationCenter />
 
           {user ? (
             <button 

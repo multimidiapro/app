@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import { FeedbackModal } from './FeedbackModal';
 import { ThemeToggle } from './theme-toggle';
 import { AIReport } from './AIReport';
+import { AdminNotificationPanel } from './AdminNotificationPanel';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -233,6 +234,7 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
                   <h3 className="text-lg font-bold flex items-center justify-center gap-2">
                     {profile?.display_name || user?.email?.split('@')[0]}
                     {profile?.is_contributor && <Crown size={16} className="text-yellow-500" />}
+                    {profile?.is_admin && <ShieldCheck size={16} className="text-primary" />}
                   </h3>
                   <p className="text-sm text-muted-foreground">{user?.email}</p>
                 </div>
@@ -270,6 +272,10 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
               <div className="flex-1">
                 {activeTab === 'profile' && (
                   <div className="flex flex-col gap-6 animate-in fade-in duration-300">
+                    {profile?.is_admin && (
+                      <AdminNotificationPanel />
+                    )}
+                    
                     <div className="flex flex-col gap-4">
                       <div className="flex items-center justify-between">
                         <h4 className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Sobre Mim</h4>
