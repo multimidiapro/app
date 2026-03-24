@@ -316,29 +316,29 @@ export default function Dashboard() {
         </section>
 
         {/* Verse of the Day */}
-        <section className="bg-card rounded-3xl p-6 md:p-8 shadow-sm border border-border relative overflow-hidden group">
+        <section className="bg-card rounded-3xl p-4 md:p-8 shadow-sm border border-border relative overflow-hidden group">
           <div className="absolute top-0 left-0 w-2 h-full bg-primary shadow-[0_0_10px_rgba(241,23,23,0.5)]"></div>
           <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-500"></div>
           
-          <div className="flex flex-col gap-6 relative z-10">
+          <div className="flex flex-col gap-4 md:gap-6 relative z-10">
             <div className="flex items-center justify-between">
               <div className="flex flex-col">
-                <h3 className="text-xs md:text-sm font-bold uppercase tracking-widest text-muted-foreground">Versículo do Dia</h3>
-                <p className="text-sm font-medium text-foreground mt-1 capitalize">
+                <h3 className="text-[10px] md:text-sm font-bold uppercase tracking-widest text-muted-foreground">Versículo do Dia</h3>
+                <p className="text-xs md:text-sm font-medium text-foreground mt-0.5 capitalize">
                   {formatDateLong(selectedDate)}
                 </p>
               </div>
               <button 
                 onClick={() => setShowFullCalendar(true)}
-                className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-primary"
+                className="p-1.5 md:p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground hover:text-primary"
                 title="Ver calendário completo"
               >
-                <Calendar size={20} />
+                <Calendar size={18} className="md:w-5 md:h-5" />
               </button>
             </div>
 
             {/* Day Selector */}
-            <div className="flex justify-start items-center gap-4 overflow-x-auto pb-2 no-scrollbar">
+            <div className="flex justify-between items-center gap-1 md:gap-4 pb-1">
               {weekDays.map((dateStr) => {
                 const date = new Date(dateStr + 'T12:00:00');
                 const isToday = dateStr === todayStr;
@@ -354,20 +354,20 @@ export default function Dashboard() {
                     key={dateStr}
                     disabled={!isUnlocked}
                     onClick={() => setSelectedDate(dateStr)}
-                    className={`flex flex-col items-center gap-1.5 min-w-[40px] md:min-w-[48px] p-1.5 md:p-2 rounded-2xl transition-all ${
+                    className={`flex-1 flex flex-col items-center gap-1 p-1 md:p-2 rounded-xl transition-all ${
                       isSelected 
                         ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' 
                         : 'hover:bg-secondary text-muted-foreground'
                     } ${!isUnlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
-                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tighter">{dayName}</span>
-                    <div className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full border-2 ${
+                    <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-tighter">{dayName}</span>
+                    <div className={`w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full border-2 ${
                       isSelected ? 'border-primary-foreground/30' : 'border-transparent'
                     }`}>
                       {!isUnlocked ? (
-                        <Lock size={10} className="md:w-3 md:h-3" />
+                        <Lock size={8} className="md:w-3 md:h-3" />
                       ) : (
-                        <span className="text-xs md:text-sm font-bold">{dayNum}</span>
+                        <span className="text-[10px] md:text-sm font-bold">{dayNum}</span>
                       )}
                     </div>
                   </button>
