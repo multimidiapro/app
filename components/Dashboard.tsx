@@ -234,7 +234,7 @@ export default function Dashboard() {
               referrerPolicy="no-referrer"
             />
           </div>
-          <h1 className="font-outfit text-2xl md:text-3xl font-bold tracking-tight text-foreground">IA Bíblia</h1>
+          <h1 className="font-outfit text-2xl md:text-3xl font-bold tracking-tight text-foreground hidden md:block">IA Bíblia</h1>
         </div>
         
         <div className="flex items-center gap-2 md:gap-4">
@@ -317,7 +317,7 @@ export default function Dashboard() {
 
         {/* Verse of the Day */}
         <section className="bg-card rounded-3xl p-6 md:p-8 shadow-sm border border-border relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-2 h-full bg-primary shadow-[0_0_10px_rgba(14,165,233,0.5)]"></div>
+          <div className="absolute top-0 left-0 w-2 h-full bg-primary shadow-[0_0_10px_rgba(241,23,23,0.5)]"></div>
           <div className="absolute -right-20 -top-20 w-64 h-64 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-colors duration-500"></div>
           
           <div className="flex flex-col gap-6 relative z-10">
@@ -354,20 +354,20 @@ export default function Dashboard() {
                     key={dateStr}
                     disabled={!isUnlocked}
                     onClick={() => setSelectedDate(dateStr)}
-                    className={`flex flex-col items-center gap-2 min-w-[48px] p-2 rounded-2xl transition-all ${
+                    className={`flex flex-col items-center gap-1.5 min-w-[40px] md:min-w-[48px] p-1.5 md:p-2 rounded-2xl transition-all ${
                       isSelected 
                         ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' 
                         : 'hover:bg-secondary text-muted-foreground'
                     } ${!isUnlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
-                    <span className="text-[10px] font-bold uppercase tracking-tighter">{dayName}</span>
-                    <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 ${
+                    <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-tighter">{dayName}</span>
+                    <div className={`w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-full border-2 ${
                       isSelected ? 'border-primary-foreground/30' : 'border-transparent'
                     }`}>
                       {!isUnlocked ? (
-                        <Lock size={12} />
+                        <Lock size={10} className="md:w-3 md:h-3" />
                       ) : (
-                        <span className="text-sm font-bold">{dayNum}</span>
+                        <span className="text-xs md:text-sm font-bold">{dayNum}</span>
                       )}
                     </div>
                   </button>

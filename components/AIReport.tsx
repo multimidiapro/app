@@ -86,7 +86,7 @@ export function AIReport({ isOpen, onClose }: AIReportProps) {
 
               {/* System Prompt */}
               <section className="space-y-4">
-                <div className="flex items-center gap-2 text-blue-500">
+                <div className="flex items-center gap-2 text-red-500">
                   <Terminal size={18} />
                   <h3 className="font-bold">Instruções do Sistema (Prompt)</h3>
                 </div>

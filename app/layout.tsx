@@ -25,7 +25,7 @@ const outfit = Outfit({
 });
 
 export const viewport = {
-  themeColor: '#0ea5e9',
+  themeColor: '#f11717',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
@@ -84,8 +84,8 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
           <AuthProvider>
             {/* Futuristic Aura Background */}
             <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
-              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-cyan-400/10 dark:bg-cyan-500/10 rounded-full blur-[120px] opacity-50 animate-pulse-slow"></div>
-              <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-blue-500/10 dark:bg-blue-600/10 rounded-full blur-[100px] opacity-30"></div>
+              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-red-400/10 dark:bg-red-500/10 rounded-full blur-[120px] opacity-50 animate-pulse-slow"></div>
+              <div className="absolute bottom-0 right-0 w-[600px] h-[600px] bg-red-500/10 dark:bg-red-600/10 rounded-full blur-[100px] opacity-30"></div>
             </div>
             {children}
             <script

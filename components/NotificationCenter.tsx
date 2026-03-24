@@ -78,7 +78,7 @@ export function NotificationCenter() {
 
   const getIcon = (type: string) => {
     switch (type) {
-      case 'update': return <RefreshCw className="text-blue-500" size={16} />;
+      case 'update': return <RefreshCw className="text-red-500" size={16} />;
       case 'event': return <Calendar className="text-purple-500" size={16} />;
       case 'admin': return <MessageSquare className="text-amber-500" size={16} />;
       default: return <Info className="text-sky-500" size={16} />;
@@ -117,16 +117,16 @@ export function NotificationCenter() {
 
             <div className="max-h-[400px] overflow-y-auto no-scrollbar">
               {hasUpdate && (
-                <div className="p-4 bg-blue-500/10 border-b border-blue-500/20 flex gap-3 items-start">
-                  <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500 shrink-0">
+                <div className="p-4 bg-red-500/10 border-b border-red-500/20 flex gap-3 items-start">
+                  <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center text-red-500 shrink-0">
                     <RefreshCw size={16} className="animate-spin-slow" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-blue-600 dark:text-blue-400">Nova Versão Disponível!</p>
+                    <p className="text-sm font-bold text-red-600 dark:text-red-400">Nova Versão Disponível!</p>
                     <p className="text-xs text-muted-foreground mb-2">Uma nova atualização foi detectada. Atualize para ver as melhorias.</p>
                     <button
                       onClick={handleUpdate}
-                      className="text-xs font-bold bg-blue-500 text-white px-3 py-1.5 rounded-lg hover:bg-blue-600 transition-colors"
+                      className="text-xs font-bold bg-red-500 text-white px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors"
                     >
                       Atualizar Agora
                     </button>
