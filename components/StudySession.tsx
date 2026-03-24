@@ -8,7 +8,7 @@ import LZString from 'lz-string';
 import { generateBibleStudy } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
-import { getStudies, deleteStudy, updateStudyTitle, getStudyMessages, saveStudyMessage, copyStudy, getProfile, type StudyHistory, type Profile } from '@/lib/db';
+import { getStudies, deleteStudy, updateStudyTitle, getStudyMessages, saveStudyMessage, copyStudy, getProfile, getHistorySummary, type StudyHistory, type Profile } from '@/lib/db';
 import { useAuth } from '@/hooks/useAuth';
 import { ProfileMenu } from '@/components/ProfileMenu';
 import { FeedbackModal } from '@/components/FeedbackModal';
@@ -159,7 +159,13 @@ export default function StudySession() {
       // Remove the last message from history since it's the prompt itself
       aiHistory.pop();
 
-      const responseText = await generateBibleStudy(text, aiHistory, profile ? { display_name: profile.display_name } : undefined);
+      const historySummary = await getHistorySummary();
+      
+      const responseText = await generateBibleStudy(text, aiHistory, { 
+        display_name: profile?.display_name,
+        goals: profile?.goals,
+        historySummary
+      });
       
       const aiMsg: Message = { id: (Date.now() + 1).toString(), role: 'model', text: responseText };
       setMessages(prev => [...prev, aiMsg]);

@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download, Crown, Moon, Sun } from 'lucide-react';
+import { User, Camera, X, LogOut, ChevronRight, Clock, Save, Loader2, MessageSquare, Download, Crown, Moon, Sun, ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { getProfile, updateProfile, uploadProfileImage, type Profile, getStudies, getAllHighlights, type StudyHistory, type Highlight } from '@/lib/db';
 import Cropper, { type Point, type Area } from 'react-easy-crop';
 import { useRouter } from 'next/navigation';
 import { FeedbackModal } from './FeedbackModal';
 import { ThemeToggle } from './theme-toggle';
+import { AIReport } from './AIReport';
 
 interface BeforeInstallPromptEvent extends Event {
   readonly platforms: string[];
@@ -29,6 +30,7 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
   const [name, setName] = useState('');
   const [goals, setGoals] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
+  const [showAIReport, setShowAIReport] = useState(false);
   
   // PWA Install
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -437,6 +439,16 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
 
                       <button 
                         onClick={() => {
+                          setShowAIReport(true);
+                        }}
+                        className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-border hover:bg-secondary/50 transition-all"
+                      >
+                        <ShieldCheck size={18} className="text-primary" />
+                        <span className="text-sm font-medium">Privacidade da IA</span>
+                      </button>
+
+                      <button 
+                        onClick={() => {
                           setShowFeedback(true);
                         }}
                         className="flex items-center gap-3 p-3 bg-secondary/30 rounded-xl border border-border hover:bg-secondary/50 transition-all"
@@ -520,6 +532,9 @@ export function ProfileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () 
       )}
       {/* Feedback Modal */}
       <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
+      
+      {/* AI Report Modal */}
+      <AIReport isOpen={showAIReport} onClose={() => setShowAIReport(false)} />
     </div>
   );
 }

@@ -23,10 +23,20 @@ NÃO use teologia externa, filosofia, opiniões pessoais ou fontes históricas f
 Mantenha um tom respeitoso, acolhedor e focado no texto sagrado.
 Formate suas respostas em Markdown, usando negrito para versículos e itálico para ênfase.
 
+Continuidade e Contexto:
+- Cada novo estudo é uma continuidade do aprendizado bíblico do usuário. Não trate cada interação como o primeiro contato se houver histórico.
+- Você tem acesso aos objetivos do usuário e ao resumo de seus estudos anteriores. Use isso para personalizar as explicações.
+- Sempre saiba a data e hora atual fornecida no contexto.
+
+Regras de Doação:
+- NÃO sugira doações em todas as interações.
+- Sugira doações APENAS em momentos oportunos (ex: após uma explicação profunda, quando o usuário expressar gratidão, ou quando o tema for generosidade/serviço).
+- Use um tom suave: "Inclusive, se você desejar contribuir com nosso aplicativo (que é 100% gratuito para você, mas possui custos de manutenção), você pode fazer uma doação clicando aqui: [Doar](#donate)".
+
 Personalização:
 - Cumprimente o usuário de acordo com o horário do dia (Bom dia, Boa tarde, Boa noite).
 - Se o nome do usuário for conhecido, use-o.
-- Na primeira interação, pergunte se o nome está correto. Se o usuário disser que não, forneça um link para as configurações usando o formato: [Editar Nome](#profile).
+- Na primeira interação real (se não houver histórico), pergunte se o nome está correto. Se o usuário disser que não, forneça um link para as configurações usando o formato: [Editar Nome](#profile).
 - Se o usuário relatar um bug, forneça um botão/link para o WhatsApp de suporte usando o formato: [Suporte WhatsApp](https://wa.me/5562994581066).
 - Adapte seu tom de voz e estilo conforme as interações do usuário.
 - Se o usuário perguntar sobre funcionalidades (compartilhar, doar, etc.), forneça links usando o formato: [Ação](#acao).
@@ -35,17 +45,35 @@ Personalização:
   - [Suporte](#support)
 - Sempre que sugerir uma ação, use o formato de link Markdown [Texto do Botão](#acao). O sistema irá renderizar esses links como botões.`;
 
-export async function generateBibleStudy(prompt: string, history: { role: string, parts: { text: string }[] }[] = [], userProfile?: { display_name: string }) {
+export async function generateBibleStudy(
+  prompt: string, 
+  history: { role: string, parts: { text: string }[] }[] = [], 
+  userContext?: { 
+    display_name?: string, 
+    goals?: string, 
+    historySummary?: string 
+  }
+) {
   const contents = history.map(h => ({
     role: h.role,
     parts: h.parts
   }));
   
-  const userName = userProfile?.display_name || 'usuário';
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
+  const userName = userContext?.display_name || 'usuário';
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
   
-  const personalizedPrompt = `${greeting}, ${userName}. ${prompt}`;
+  const contextInfo = `
+Contexto do Usuário:
+- Nome: ${userName}
+- Data Atual: ${dateStr}
+- Hora Atual: ${timeStr}
+- Objetivos de Estudo: ${userContext?.goals || 'Crescimento espiritual geral'}
+- Resumo de Estudos Anteriores: ${userContext?.historySummary || 'Iniciando jornada agora'}
+`;
+
+  const personalizedPrompt = `${contextInfo}\n\nPergunta do Usuário: ${prompt}`;
 
   contents.push({
     role: 'user',

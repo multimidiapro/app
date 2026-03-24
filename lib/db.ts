@@ -449,6 +449,14 @@ export async function getSearchHistory() {
   return [];
 }
 
+export async function getHistorySummary(): Promise<string> {
+  const studies = await getStudies();
+  if (studies.length === 0) return 'Nenhum estudo anterior.';
+  
+  const recentTitles = studies.slice(0, 5).map(s => s.title).join(', ');
+  return `O usuário já estudou sobre: ${recentTitles}.`;
+}
+
 export async function saveGeneratedImage(bookId: string, chapter: number, verse: number, imageUrl: string, prompt?: string) {
   const userId = await getUserId();
   
