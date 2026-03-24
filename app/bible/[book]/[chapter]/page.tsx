@@ -14,7 +14,9 @@ import {
   CheckCircle, 
   Sparkles,
   Globe,
-  ChevronDown
+  ChevronDown,
+  Download,
+  Check
 } from 'lucide-react';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { generateVerseExplanation, generateBibleText, enhanceChapterWithMetadata } from '@/lib/ai';
@@ -63,6 +65,7 @@ export default function ChapterPage() {
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [currentVersion, setCurrentVersion] = useState('almeida');
   const [showVersionSelector, setShowVersionSelector] = useState(false);
+  const [downloadedVersions, setDownloadedVersions] = useState<string[]>(['almeida']);
   
   const [selectedVerses, setSelectedVerses] = useState<number[]>([]);
   const [highlights, setHighlights] = useState<Record<number, string>>({});
@@ -176,6 +179,10 @@ export default function ChapterPage() {
           hlData.forEach(h => { hlMap[h.verse] = h.color; });
           setHighlights(hlMap);
           setReadVerses(readData);
+          
+          // Load downloaded versions
+          const saved = localStorage.getItem('biblia_ai_downloaded_versions');
+          if (saved) setDownloadedVersions(JSON.parse(saved));
         } catch (e) {
           console.error('Failed to load chapter metadata', e);
         }
@@ -343,24 +350,38 @@ export default function ChapterPage() {
               </button>
               
               {showVersionSelector && (
-                <div className="absolute top-full right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                <div className="absolute top-full right-0 mt-2 w-56 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
                   <div className="p-2 flex flex-col gap-1">
                     {[
-                      { id: 'almeida', name: 'Almeida Revista e Corrigida' },
-                      { id: 'nvi', name: 'Nova Versão Internacional' },
-                      { id: 'aa', name: 'Almeida Antiga' },
-                      { id: 'kjv', name: 'King James Version' }
-                    ].map((v) => (
+                      { id: 'almeida', name: 'ARA' },
+                      { id: 'nvi', name: 'NVI' },
+                      { id: 'arc', name: 'ARC' },
+                      { id: 'ntlh', name: 'NTLH' },
+                      { id: 'aa', name: 'AA' },
+                      { id: 'a21', name: 'A21' },
+                      { id: 'kjv', name: 'KJV' },
+                      { id: 'nbv', name: 'NBV' },
+                      { id: 'nvt', name: 'NVT' },
+                    ].filter(v => downloadedVersions.includes(v.id)).map((v) => (
                       <button
                         key={v.id}
                         onClick={() => handleVersionChange(v.id)}
-                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-medium transition-colors ${
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-medium transition-colors flex items-center justify-between ${
                           currentVersion === v.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'
                         }`}
                       >
-                        {v.name}
+                        <span>{v.name}</span>
+                        {currentVersion === v.id && <Check size={14} />}
                       </button>
                     ))}
+                    <div className="h-px bg-border my-1" />
+                    <button
+                      onClick={() => router.push('/bible/versions')}
+                      className="w-full text-left px-4 py-2.5 rounded-xl text-xs font-bold text-primary hover:bg-primary/10 transition-colors flex items-center gap-2"
+                    >
+                      <Download size={14} />
+                      Mais versões
+                    </button>
                   </div>
                 </div>
               )}

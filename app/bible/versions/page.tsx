@@ -6,19 +6,24 @@ import {
   ArrowLeft, 
   Globe, 
   Download, 
-  Trash2, 
   Search,
-  Volume2
+  Volume2,
+  MoreVertical,
+  ChevronRight,
+  Check
 } from 'lucide-react';
 import { getSelectedVersion, setSelectedVersion } from '@/lib/db';
 
 const VERSIONS = [
-  { id: 'almeida', name: 'ARA', fullName: 'Almeida Revista e Atualizada', language: 'Português (Brasil)', hasAudio: true },
-  { id: 'nvi', name: 'NVI', fullName: 'Nova Versão Internacional', language: 'Português (Brasil)', hasAudio: true },
-  { id: 'arc', name: 'ARC', fullName: 'Almeida Revista e Corrigida', language: 'Português (Brasil)', hasAudio: true },
-  { id: 'ntlh', name: 'NTLH', fullName: 'Nova Tradução na Linguagem de Hoje', language: 'Português (Brasil)', hasAudio: true },
-  { id: 'aa', name: 'AA', fullName: 'Almeida Antiga', language: 'Português (Brasil)', hasAudio: false },
-  { id: 'kjv', name: 'KJV', fullName: 'King James Version', language: 'English', hasAudio: true },
+  { id: 'almeida', name: 'ARA', fullName: 'Almeida Revista e Atualizada', language: 'Português (Brasil)', hasAudio: true, hasUpdate: false },
+  { id: 'nvi', name: 'NVI', fullName: 'Nova Versão Internacional - Português', language: 'Português (Brasil)', hasAudio: true, hasUpdate: true },
+  { id: 'arc', name: 'ARC', fullName: 'Almeida Revista e Corrigida', language: 'Português (Brasil)', hasAudio: true, hasUpdate: false },
+  { id: 'ntlh', name: 'NTLH', fullName: 'Nova Tradução na Linguagem de Hoje', language: 'Português (Brasil)', hasAudio: true, hasUpdate: false },
+  { id: 'aa', name: 'AA', fullName: 'Almeida Antiga', language: 'Português (Brasil)', hasAudio: false, hasUpdate: false },
+  { id: 'a21', name: 'A21', fullName: 'Almeida Século 21', language: 'Português (Brasil)', hasAudio: false, hasUpdate: false },
+  { id: 'kjv', name: 'KJV', fullName: 'King James Version', language: 'English', hasAudio: true, hasUpdate: false },
+  { id: 'nbv', name: 'NBV', fullName: 'Nova Bíblia Viva', language: 'Português (Brasil)', hasAudio: true, hasUpdate: false },
+  { id: 'nvt', name: 'NVT', fullName: 'Nova Versão Transformadora', language: 'Português (Brasil)', hasAudio: false, hasUpdate: false },
 ];
 
 export default function VersionsPage() {
@@ -75,99 +80,133 @@ export default function VersionsPage() {
     }, 400);
   };
 
-  const removeDownload = (id: string) => {
-    if (id === 'almeida') return; // Keep default
-    setDownloaded(prev => {
-      const next = prev.filter(v => v !== id);
-      localStorage.setItem('biblia_ai_downloaded_versions', JSON.stringify(next));
-      return next;
-    });
-  };
-
   const filteredVersions = VERSIONS.filter(v => 
     v.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     v.fullName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border p-4 flex items-center gap-4">
-        <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-secondary transition-colors">
+    <div className="min-h-screen bg-[#0a0a0a] text-foreground flex flex-col font-sans">
+      <header className="sticky top-0 z-50 bg-[#0a0a0a]/80 backdrop-blur-md p-4 flex items-center gap-4">
+        <button onClick={() => router.back()} className="p-2 rounded-full hover:bg-white/5 transition-colors">
           <ArrowLeft size={24} />
         </button>
-        <h1 className="text-xl font-bold flex-1">Versões</h1>
-        <button className="p-2 rounded-full hover:bg-secondary transition-colors">
+        <h1 className="text-xl font-medium flex-1">Versões</h1>
+        <button className="p-2 rounded-full hover:bg-white/5 transition-colors">
           <Search size={24} />
         </button>
       </header>
 
       <main className="flex-1 p-4 max-w-2xl mx-auto w-full pb-20">
         <div className="mb-8">
-          <button className="w-full flex items-center justify-between p-4 rounded-2xl bg-secondary/50 hover:bg-secondary transition-colors">
-            <div className="flex items-center gap-3">
+          <button className="w-full flex items-center justify-between p-5 rounded-3xl bg-[#1a1a1a] hover:bg-[#222] transition-colors">
+            <div className="flex items-center gap-4">
               <Globe size={20} className="text-muted-foreground" />
-              <div className="text-left">
-                <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Idioma</p>
-                <p className="font-bold">Português (Brasil)</p>
-              </div>
+              <p className="font-medium text-lg">Idioma</p>
             </div>
-            <ArrowLeft size={20} className="rotate-180 text-muted-foreground" />
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span className="text-sm">Português (Brasil)</span>
+              <ChevronRight size={20} className="rotate-0" />
+            </div>
           </button>
         </div>
 
-        <section className="mb-8">
-          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 px-2">Baixado</h2>
-          <div className="flex flex-col gap-2">
+        <section className="mb-10">
+          <h2 className="text-xl font-bold mb-6 px-2">Baixado</h2>
+          <div className="flex flex-col gap-6">
             {VERSIONS.filter(v => downloaded.includes(v.id)).map(v => (
               <div 
                 key={v.id}
-                className={`p-4 rounded-2xl border-2 transition-all ${
-                  selected === v.id ? 'border-primary bg-primary/5' : 'border-transparent bg-card hover:bg-secondary/30'
-                }`}
+                className="group cursor-pointer"
                 onClick={() => handleSelect(v.id)}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-black">{v.name}</span>
-                    {v.hasAudio && <Volume2 size={16} className="text-muted-foreground" />}
-                    {v.id === 'almeida' && <span className="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold">PADRÃO</span>}
+                <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-bold tracking-tight">{v.name}</span>
+                      {v.hasAudio && (
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <Volume2 size={18} />
+                          <span className="text-xs font-bold">2</span>
+                        </div>
+                      )}
+                      {selected === v.id && (
+                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <Check size={12} className="text-primary-foreground" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-base text-muted-foreground font-light">{v.fullName}</p>
+                    {v.hasUpdate && (
+                      <div className="mt-1">
+                        <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">
+                          Atualização disponível
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <button 
                     onClick={(e) => {
                       e.stopPropagation();
-                      removeDownload(v.id);
+                      // Show menu
                     }}
-                    className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                    className="p-2 text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    <Trash2 size={18} />
+                    <MoreVertical size={24} />
                   </button>
                 </div>
-                <p className="text-sm text-muted-foreground">{v.fullName}</p>
               </div>
             ))}
           </div>
         </section>
 
         {Object.keys(downloading).length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 px-2">Baixando</h2>
-            <div className="flex flex-col gap-2">
+          <section className="mb-10">
+            <h2 className="text-xl font-bold mb-6 px-2">Baixando</h2>
+            <div className="flex flex-col gap-6">
               {VERSIONS.filter(v => downloading[v.id] !== undefined).map(v => (
-                <div key={v.id} className="p-4 rounded-2xl bg-card border border-border">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg font-black">{v.name}</span>
-                      <Volume2 size={16} className="text-muted-foreground" />
+                <div key={v.id} className="flex items-center justify-between">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-bold tracking-tight">{v.name}</span>
+                      <Volume2 size={18} className="text-muted-foreground" />
                     </div>
-                    <span className="text-sm font-bold text-primary">{downloading[v.id]}%</span>
+                    <p className="text-base text-muted-foreground font-light">{v.fullName}</p>
+                    <div className="mt-3 w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-white transition-all duration-300" 
+                        style={{ width: `${downloading[v.id]}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2 font-medium">Baixando Versão</p>
                   </div>
-                  <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary transition-all duration-300" 
-                      style={{ width: `${downloading[v.id]}%` }}
-                    />
+                  <div className="relative w-14 h-14">
+                    <svg className="w-full h-full transform -rotate-90">
+                      <circle
+                        cx="28"
+                        cy="28"
+                        r="24"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        fill="transparent"
+                        className="text-white/10"
+                      />
+                      <circle
+                        cx="28"
+                        cy="28"
+                        r="24"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        fill="transparent"
+                        strokeDasharray={2 * Math.PI * 24}
+                        strokeDashoffset={2 * Math.PI * 24 * (1 - downloading[v.id] / 100)}
+                        className="text-red-500 transition-all duration-300"
+                      />
+                    </svg>
+                    <span className="absolute inset-0 flex items-center justify-center text-xs font-bold">
+                      {downloading[v.id]}%
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Baixando Versão...</p>
                 </div>
               ))}
             </div>
@@ -175,24 +214,28 @@ export default function VersionsPage() {
         )}
 
         <section>
-          <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-4 px-2">
+          <h2 className="text-xl font-bold mb-6 px-2">
             Português (Brasil) Versões ({filteredVersions.length})
           </h2>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-8">
             {filteredVersions.filter(v => !downloaded.includes(v.id) && downloading[v.id] === undefined).map(v => (
               <div 
                 key={v.id}
-                className="p-4 rounded-2xl bg-card border border-border hover:bg-secondary/30 transition-colors cursor-pointer group"
+                className="flex items-center justify-between group cursor-pointer"
                 onClick={() => startDownload(v.id)}
               >
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-black">{v.name}</span>
-                    {v.hasAudio && <Volume2 size={16} className="text-muted-foreground" />}
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl font-bold tracking-tight">{v.name}</span>
+                    <button className="p-1.5 bg-white/10 rounded-lg text-white">
+                      <Download size={14} />
+                    </button>
                   </div>
-                  <Download size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                  <p className="text-base text-muted-foreground font-light">{v.fullName}</p>
                 </div>
-                <p className="text-sm text-muted-foreground">{v.fullName}</p>
+                <button className="p-2 text-muted-foreground hover:text-foreground transition-colors">
+                  <MoreVertical size={24} />
+                </button>
               </div>
             ))}
           </div>
