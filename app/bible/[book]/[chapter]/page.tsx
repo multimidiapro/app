@@ -2,28 +2,41 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
-import { ArrowLeft, ChevronLeft, ChevronRight, X, MessageSquare, Eraser, BookOpen, CheckCircle2, CheckCircle } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  ChevronLeft, 
+  ChevronRight, 
+  X, 
+  MessageSquare, 
+  Eraser, 
+  BookOpen, 
+  CheckCircle2, 
+  CheckCircle, 
+  Sparkles,
+  Globe,
+  ChevronDown
+} from 'lucide-react';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
-import { generateVerseExplanation, generateBibleText } from '@/lib/ai';
+import { generateVerseExplanation, generateBibleText, enhanceChapterWithMetadata } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatBibleText, linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
-import { getHighlights, saveHighlight, removeHighlight, saveStudy, saveReadingHistory, getVerseReadHistory, markChapterCompleted, removeReadingHistory, fetchAndCacheChapter } from '@/lib/db';
+import { 
+  getHighlights, 
+  saveHighlight, 
+  removeHighlight, 
+  saveStudy, 
+  saveReadingHistory, 
+  getVerseReadHistory, 
+  markChapterCompleted, 
+  removeReadingHistory, 
+  fetchAndCacheChapter,
+  getSelectedVersion,
+  setSelectedVersion,
+  saveChapterCache,
+  ChapterData
+} from '@/lib/db';
 import { ShareVerse } from '@/components/ShareVerse';
 import ReactMarkdown from 'react-markdown';
-
-type Verse = {
-  book_id: string;
-  book_name: string;
-  chapter: number;
-  verse: number;
-  text: string;
-};
-
-type ChapterData = {
-  reference: string;
-  verses: Verse[];
-  text: string;
-};
 
 const HIGHLIGHT_COLORS = ['#fef08a', '#bbf7d0', '#bfdbfe', '#fbcfe8'];
 
@@ -47,6 +60,9 @@ export default function ChapterPage() {
   const [data, setData] = useState<ChapterData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isEnhancing, setIsEnhancing] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState('almeida');
+  const [showVersionSelector, setShowVersionSelector] = useState(false);
   
   const [selectedVerses, setSelectedVerses] = useState<number[]>([]);
   const [highlights, setHighlights] = useState<Record<number, string>>({});
@@ -71,8 +87,38 @@ export default function ChapterPage() {
         
         if (!bookInfo) throw new Error('Livro não encontrado');
 
+        const version = await getSelectedVersion();
+        setCurrentVersion(version);
+
         const json = await fetchAndCacheChapter(bookId, bookInfo.name, chapterNum);
         setData(json);
+
+        // Check if we need to enhance with titles and red letters
+        // Only enhance if it's a new chapter or missing metadata
+        const hasMetadata = json.verses.some(v => v.title || v.is_jesus_words);
+        if (!hasMetadata) {
+          setIsEnhancing(true);
+          try {
+            const metadata = await enhanceChapterWithMetadata(`${bookInfo.name} ${chapterNum}`, json.verses);
+            if (metadata && metadata.verses) {
+              const enhancedVerses = json.verses.map(v => {
+                const meta = metadata.verses.find((m: { verse: number; title?: string; isJesusWords?: boolean }) => m.verse === v.verse);
+                return {
+                  ...v,
+                  title: meta?.title || undefined,
+                  is_jesus_words: meta?.isJesusWords || false
+                };
+              });
+              const enhancedData = { ...json, verses: enhancedVerses };
+              setData(enhancedData);
+              await saveChapterCache(bookId, chapterNum, enhancedData, version);
+            }
+          } catch (e) {
+            console.error('Failed to enhance chapter', e);
+          } finally {
+            setIsEnhancing(false);
+          }
+        }
       } catch (err) {
         // AI Fallback as last resort
         if (bookInfo) {
@@ -81,7 +127,6 @@ export default function ChapterPage() {
             const aiText = await generateBibleText(`${bookInfo.name} ${chapterNum}`);
             if (aiText && aiText.verses && aiText.verses.length > 0) {
               setData(aiText);
-              // We don't save AI text to cache to avoid polluting it with non-official text
             } else {
               throw new Error('Falha ao carregar o capítulo via API e AI');
             }
@@ -255,6 +300,14 @@ export default function ChapterPage() {
     router.push(`/study/${id}?q=${encodeURIComponent(query)}`);
   };
 
+  const handleVersionChange = async (version: string) => {
+    await setSelectedVersion(version);
+    setCurrentVersion(version);
+    setShowVersionSelector(false);
+    // Re-fetch chapter with new version
+    window.location.reload(); // Simplest way to re-trigger everything for now
+  };
+
   if (!bookInfo) return <div className="p-8 text-center">Livro não encontrado.</div>;
 
   const sortedSelectedVerses = [...selectedVerses].sort((a, b) => a - b);
@@ -279,6 +332,39 @@ export default function ChapterPage() {
           </div>
           
           <div className="flex items-center gap-1 md:gap-2">
+            <div className="relative">
+              <button 
+                onClick={() => setShowVersionSelector(!showVersionSelector)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-secondary rounded-full text-[10px] font-bold hover:bg-secondary/80 transition-colors uppercase tracking-wider"
+              >
+                <Globe size={12} />
+                {currentVersion === 'almeida' ? 'ARC' : currentVersion.toUpperCase()}
+                <ChevronDown size={12} className={`transition-transform ${showVersionSelector ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {showVersionSelector && (
+                <div className="absolute top-full right-0 mt-2 w-48 bg-card border border-border rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2">
+                  <div className="p-2 flex flex-col gap-1">
+                    {[
+                      { id: 'almeida', name: 'Almeida Revista e Corrigida' },
+                      { id: 'nvi', name: 'Nova Versão Internacional' },
+                      { id: 'aa', name: 'Almeida Antiga' },
+                      { id: 'kjv', name: 'King James Version' }
+                    ].map((v) => (
+                      <button
+                        key={v.id}
+                        onClick={() => handleVersionChange(v.id)}
+                        className={`w-full text-left px-4 py-2.5 rounded-xl text-xs font-medium transition-colors ${
+                          currentVersion === v.id ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'
+                        }`}
+                      >
+                        {v.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
             <ThemeToggle />
             <div className="flex items-center gap-1 bg-secondary rounded-full p-0.5 md:p-1">
               <button
@@ -318,9 +404,17 @@ export default function ChapterPage() {
                   const isSelected = selectedVerses.includes(verse.verse);
                   const isRead = readVerses.includes(verse.verse);
                   const highlightColor = highlights[verse.verse];
+                  const isJesusWords = verse.is_jesus_words;
                   
                   return (
-                    <div key={verse.verse} className="group mb-2">
+                    <div key={verse.verse} className="group mb-4">
+                      {verse.title && (
+                        <div className="mb-4 mt-8">
+                          <h3 className="text-xl md:text-2xl font-bold font-sans text-primary italic leading-tight">
+                            {verse.title}
+                          </h3>
+                        </div>
+                      )}
                       <span 
                         id={`v${verse.verse}`}
                         onClick={() => handleVerseClick(verse.verse)}
@@ -333,11 +427,19 @@ export default function ChapterPage() {
                           {isRead && <CheckCircle2 size={10} className="inline mr-0.5 text-emerald-500" />}
                           {verse.verse}
                         </sup>
-                        {verse.text}
+                        <span className={isJesusWords ? 'text-red-500 font-medium' : ''}>
+                          {verse.text}
+                        </span>
                       </span>
                     </div>
                   );
                 })}
+                {isEnhancing && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse mt-4">
+                    <Sparkles size={14} className="text-primary" />
+                    <span>IA Bíblia está adicionando títulos e destaques...</span>
+                  </div>
+                )}
               </div>
 
               {!loading && !error && data && (

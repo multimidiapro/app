@@ -953,47 +953,6 @@ export async function checkAppUpdate(): Promise<{ hasUpdate: boolean; version?: 
   return { hasUpdate: false };
 }
 
-export async function getChapterCache(bookId: string, chapter: number): Promise<unknown | null> {
-  if (typeof window === 'undefined') return null;
-  const key = `bible_cache_${bookId}_${chapter}`;
-  const cached = localStorage.getItem(key);
-  if (cached) {
-    try {
-      const { data, timestamp } = JSON.parse(cached);
-      // Cache for 7 days
-      if (Date.now() - timestamp < 7 * 24 * 60 * 60 * 1000) {
-        return data;
-      }
-      localStorage.removeItem(key);
-    } catch {
-      localStorage.removeItem(key);
-    }
-  }
-  return null;
-}
-
-export async function saveChapterCache(bookId: string, chapter: number, data: unknown) {
-  if (typeof window === 'undefined') return;
-  const key = `bible_cache_${bookId}_${chapter}`;
-  try {
-    localStorage.setItem(key, JSON.stringify({
-      data,
-      timestamp: Date.now()
-    }));
-  } catch (e) {
-    // If quota exceeded, clear some old cache
-    if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k?.startsWith('bible_cache_')) {
-          localStorage.removeItem(k);
-          break;
-        }
-      }
-    }
-  }
-}
-
 export async function getVerseOfTheDayForDate(date: string): Promise<{ reference: string; text: string; explanation: string } | null> {
   const userId = await getUserId();
   
@@ -1074,30 +1033,101 @@ export async function getVerseHistory(): Promise<string[]> {
   return [];
 }
 
-export async function fetchAndCacheChapter(bookId: string, bookName: string, chapter: number): Promise<{ reference: string; verses: { book_id: string; book_name: string; chapter: number; verse: number; text: string }[]; text: string }> {
-  // Check cache first
-  const cached = await getChapterCache(bookId, chapter);
-  if (cached) return cached as { reference: string; verses: { book_id: string; book_name: string; chapter: number; verse: number; text: string }[]; text: string };
+export interface Verse {
+  book_id: string;
+  book_name: string;
+  chapter: number;
+  verse: number;
+  text: string;
+  is_jesus_words?: boolean;
+  title?: string;
+}
 
+export interface ChapterData {
+  reference: string;
+  verses: Verse[];
+  text: string;
+  translation_id: string;
+  translation_name: string;
+}
+
+export async function getSelectedVersion(): Promise<string> {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('biblia_ai_selected_version') || 'almeida';
+  }
+  return 'almeida';
+}
+
+export async function setSelectedVersion(version: string): Promise<void> {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('biblia_ai_selected_version', version);
+  }
+}
+
+export async function getChapterCache(bookId: string, chapter: number, version: string = 'almeida'): Promise<ChapterData | null> {
+  const cacheKey = `chapter_cache_${version}_${bookId}_${chapter}`;
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) return JSON.parse(cached);
+  }
+  return null;
+}
+
+export async function saveChapterCache(bookId: string, chapter: number, data: ChapterData, version: string = 'almeida'): Promise<void> {
+  const cacheKey = `chapter_cache_${version}_${bookId}_${chapter}`;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(data));
+    } catch {
+      // If quota exceeded, clear some old cache
+      console.warn('Storage quota exceeded, clearing old cache');
+      const keys = Object.keys(localStorage).filter(k => k.startsWith('chapter_cache_'));
+      if (keys.length > 0) {
+        localStorage.removeItem(keys[0]);
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+      }
+    }
+  }
+}
+
+export async function fetchAndCacheChapter(bookId: string, bookName: string, chapter: number): Promise<ChapterData> {
+  const version = await getSelectedVersion();
+  
+  // Check cache first
+  const cached = await getChapterCache(bookId, chapter, version);
+  if (cached) return cached;
+
+  // For ARC/ARA, we might need to use a different API or AI enhancement
+  // bible-api.com 'almeida' is usually a good base
   const url = `https://bible-api.com/${encodeURIComponent(`${bookName} ${chapter}`)}?translation=almeida`;
   let res = await fetch(url);
   
   if (!res.ok) {
-    // Try English ID as fallback
     const fallbackUrl = `https://bible-api.com/${encodeURIComponent(`${bookId} ${chapter}`)}?translation=almeida`;
     res = await fetch(fallbackUrl);
   }
 
   if (!res.ok) {
-    // Try without translation parameter as last resort
     const lastResortUrl = `https://bible-api.com/${encodeURIComponent(`${bookId} ${chapter}`)}`;
     res = await fetch(lastResortUrl);
   }
 
   if (res.ok) {
     const json = await res.json();
-    await saveChapterCache(bookId, chapter, json);
-    return json;
+    
+    // Add translation info
+    const data: ChapterData = {
+      ...json,
+      translation_id: version,
+      translation_name: version === 'almeida' ? 'Almeida Revista e Corrigida' : version.toUpperCase()
+    };
+
+    // Enhance with AI for titles and red letters if it's New Testament
+    // We do this lazily or we can do it here. 
+    // For now, let's just save and return. We'll enhance in the UI or via a separate step.
+    
+    await saveChapterCache(bookId, chapter, data, version);
+    return data;
   }
   
   throw new Error('Falha ao carregar o capítulo');

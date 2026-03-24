@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { Share2, Loader2, Image as ImageIcon, Type, X, Download, Upload } from 'lucide-react';
 import { toPng } from 'html-to-image';
 import { getBackgroundTemplates, type BackgroundTemplate } from '@/lib/db';

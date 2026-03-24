@@ -168,6 +168,44 @@ Retorne APENAS um objeto JSON com o seguinte formato:
   }
 }
 
+export async function enhanceChapterWithMetadata(reference: string, verses: { verse: number; text: string }[]) {
+  const prompt = `Analise o seguinte capítulo da Bíblia (${reference}) e adicione metadados:
+1. Identifique os títulos das passagens (perícopes) que aparecem nesta tradução (Almeida Revista e Corrigida).
+2. Se for no Novo Testamento, identifique quais versículos ou partes de versículos são palavras diretas de Jesus.
+
+Retorne APENAS um objeto JSON com o seguinte formato:
+{
+  "verses": [
+    {
+      "verse": 1,
+      "title": "Título da Passagem (se houver um título que comece neste versículo)",
+      "isJesusWords": true/false (se o versículo contém palavras de Jesus)
+    }
+  ]
+}
+
+Versículos para analisar:
+${verses.map(v => `${v.verse}: ${v.text}`).join('\n')}
+`;
+
+  const response = await getAI().models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: prompt,
+    config: {
+      systemInstruction: "Você é um especialista em textos bíblicos. Retorne apenas JSON com metadados de títulos e palavras de Jesus.",
+      temperature: 0,
+      responseMimeType: 'application/json',
+    }
+  });
+
+  try {
+    return JSON.parse(response.text || '{}');
+  } catch (e) {
+    console.error('Failed to parse enhanced metadata JSON', e);
+    return { verses: [] };
+  }
+}
+
 export async function generateVerseOfTheDay(userGoals: string, historySummary: string) {
   const prompt = `Gere um "Versículo do Dia" personalizado e inspirador.
 Objetivos do usuário: ${userGoals || 'Crescimento espiritual geral'}

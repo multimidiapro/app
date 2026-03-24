@@ -2,27 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Search, BookOpen } from 'lucide-react';
-import Image from 'next/image';
+import { 
+  ArrowLeft, 
+  Search, 
+  ChevronRight,
+  Hash
+} from 'lucide-react';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { supabase } from '@/lib/supabase';
-import { ProgressCircle } from '@/components/ProgressCircle';
 import { BIBLE_METADATA, getTotalVersesInBook } from '@/lib/bible-metadata';
+import Link from 'next/link';
 
 export default function BiblePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'VT' | 'NT'>('VT');
-  const [progress, setProgress] = useState({ totalRead: 0, totalVerses: 0 });
   const [bookProgress, setBookProgress] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
+  const [showGoToVerse, setShowGoToVerse] = useState(false);
+  const [goToRef, setGoToRef] = useState('');
 
   useEffect(() => {
+    // Load progress from Supabase
     const checkAuthAndLoadProgress = async () => {
       if (!supabase) {
         console.error('Supabase client not initialized');
-        setLoading(false);
         return;
       }
 
@@ -32,9 +36,6 @@ export default function BiblePage() {
         return;
       }
 
-      // Calculate total verses in Bible
-      const totalVerses = Object.values(BIBLE_METADATA).reduce((acc, book) => acc + book.reduce((a, b) => a + b, 0), 0);
-
       // Fetch read verses
       const { data: history, error: historyError } = await supabase
         .from('reading_history')
@@ -43,7 +44,6 @@ export default function BiblePage() {
 
       if (historyError) {
         console.error('Error fetching history:', historyError);
-        setLoading(false);
         return;
       }
 
@@ -70,8 +70,6 @@ export default function BiblePage() {
           }
         });
 
-        setProgress({ totalRead: uniqueRead.size, totalVerses });
-
         // Calculate per-book progress efficiently
         BIBLE_BOOKS.forEach(book => {
           const bookReadCount = bookReadCounts[book.id]?.size || 0;
@@ -80,17 +78,33 @@ export default function BiblePage() {
         });
         setBookProgress(bookMap);
       }
-      
-      setLoading(false);
     };
 
     checkAuthAndLoadProgress();
   }, [router]);
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Carregando...</div>;
+  const handleGoToVerse = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!goToRef) return;
+    
+    // Simple parser: "Joao 3:16" or "Joao 3"
+    const parts = goToRef.trim().split(' ');
+    if (parts.length < 2) return;
+    
+    const bookName = parts.slice(0, parts.length - 1).join(' ');
+    const ref = parts[parts.length - 1];
+    const [chapter, verse] = ref.split(':');
+    
+    const book = BIBLE_BOOKS.find(b => 
+      b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
+      bookName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    );
+    
+    if (book) {
+      router.push(`/bible/${book.id}/${chapter}${verse ? `?v=${verse}` : ''}`);
+    }
+  };
 
-  const percentage = progress.totalVerses > 0 ? Math.min(100, Math.round((progress.totalRead / progress.totalVerses) * 100)) : 0;
-  
   const filteredBooks = BIBLE_BOOKS.filter(b => 
     b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .includes(searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
@@ -98,137 +112,110 @@ export default function BiblePage() {
 
   const displayedBooks = filteredBooks.filter(b => b.testament === activeTab);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Parse query like "João 3" or "1 João 3:16"
-    const match = searchQuery.match(/^(\d?\s?[a-zA-ZÀ-ÿ]+)\s+(\d+)(?::(\d+))?/);
-    if (match) {
-      const bookName = match[1].trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const chapter = match[2];
-      
-      const book = BIBLE_BOOKS.find((b) => 
-        b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === bookName ||
-        b.id.replace(/\s+/g, '') === bookName.replace(/\s+/g, '')
-      );
-      
-      if (book) {
-        // If verse is provided, we could pass it as a query param, but for now just go to chapter
-        router.push(`/bible/${book.id}/${chapter}${match[3] ? `#v${match[3]}` : ''}`);
-        return;
-      }
-    }
-    
-    // If it's just a book name and there's exactly one match, go to book page
-    if (filteredBooks.length === 1) {
-      router.push(`/bible/${filteredBooks[0].id}`);
-    }
-  };
-
-  const renderBooks = (books: typeof BIBLE_BOOKS) => {
-    if (books.length === 0) return null;
-    
-    return (
-      <section className="mb-12 animate-in fade-in duration-300">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {books.map((book) => (
-            <button
-              key={book.id}
-              onClick={() => router.push(`/bible/${book.id}`)}
-              className="flex flex-col items-center justify-center p-4 bg-card rounded-2xl border border-border hover:border-primary hover:shadow-md hover:shadow-primary/10 transition-all text-center group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-              <div className="mb-3 relative z-10">
-                <ProgressCircle percentage={bookProgress[book.id] || 0} size={48} />
-              </div>
-              <span className="font-medium text-foreground group-hover:text-primary transition-colors relative z-10">{book.name}</span>
-              <span className="text-xs text-muted-foreground mt-1 relative z-10">{book.chapters} cap.</span>
-            </button>
-          ))}
-        </div>
-      </section>
-    );
-  };
-
   return (
-    <div className="min-h-screen max-w-5xl mx-auto px-4 py-4 md:py-8 flex flex-col gap-4 md:gap-8 relative z-10">
-      <header className="flex flex-col gap-4 md:gap-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3 md:gap-4">
-            <button 
-              onClick={() => router.push('/')}
-              className="p-2 hover:bg-secondary rounded-full transition-colors bg-card shadow-sm border border-border"
-            >
-              <ArrowLeft size={20} className="text-muted-foreground" />
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="relative w-8 h-8 md:w-10 md:h-10 rounded-lg overflow-hidden shadow-sm border border-primary/20">
-                <Image 
-                  src="https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png"
-                  alt="IA Bíblia Logo"
-                  fill
-                  className="object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-              <h1 className="font-outfit text-xl md:text-2xl font-bold text-foreground">Bíblia Sagrada</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-2 text-sm font-medium text-muted-foreground">
-              <BookOpen size={16} />
-              <span>{percentage}% lido</span>
-            </div>
-            <ThemeToggle />
-          </div>
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
+      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b border-border p-4 flex items-center gap-4">
+        <div className="flex-none">
+          <Link 
+            href="/" 
+            className="w-10 h-10 flex items-center justify-center rounded-full border border-white/10 hover:bg-secondary transition-all"
+          >
+            <ArrowLeft size={20} />
+          </Link>
         </div>
-        
-        {/* Mobile progress bar */}
-        <div className="md:hidden flex items-center gap-2 text-sm font-medium text-muted-foreground bg-card p-3 rounded-xl border border-border">
-          <BookOpen size={16} />
-          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: `${percentage}%` }}></div>
-          </div>
-          <span>{percentage}%</span>
+        <h1 className="text-xl font-bold flex-1">Bíblia</h1>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowGoToVerse(!showGoToVerse)}
+            className={`p-2 rounded-full transition-colors ${showGoToVerse ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'}`}
+          >
+            <Hash size={20} />
+          </button>
+          <ThemeToggle />
         </div>
-        
-        <form onSubmit={handleSearchSubmit} className="relative w-full max-w-2xl mx-auto">
-          <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Pesquisar livro ou ir direto (ex: João 3)"
-            className="w-full pl-12 pr-4 py-3 md:py-4 bg-card border border-border rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base md:text-lg transition-all text-foreground placeholder:text-muted-foreground"
-          />
-        </form>
       </header>
 
-      <main className="flex-1">
-        <div className="flex bg-secondary p-1 rounded-xl w-full max-w-md mx-auto mb-8">
+      <main className="flex-1 p-4 max-w-2xl mx-auto w-full pb-20">
+        {showGoToVerse && (
+          <form onSubmit={handleGoToVerse} className="mb-6 animate-in fade-in slide-in-from-top-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={goToRef}
+                onChange={(e) => setGoToRef(e.target.value)}
+                placeholder="Ex: João 3:16 ou Romanos 12"
+                className="w-full bg-secondary/50 border border-border rounded-2xl py-4 px-6 pr-12 font-bold focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+                autoFocus
+              />
+              <button 
+                type="submit"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-2 px-2 uppercase font-bold tracking-wider">Ir para versículo</p>
+          </form>
+        )}
+
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <input
+              type="text"
+              placeholder="Pesquisar livros..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-secondary/30 border border-border rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-primary transition-all"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-2 mb-6">
           <button
             onClick={() => setActiveTab('VT')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${activeTab === 'VT' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`flex-1 py-2 rounded-full text-sm font-normal transition-all border ${
+              activeTab === 'VT' ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-transparent text-muted-foreground border-white/10 hover:bg-secondary'
+            }`}
           >
-            Antigo Testamento
+            Velho Testamento
           </button>
           <button
             onClick={() => setActiveTab('NT')}
-            className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all ${activeTab === 'NT' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            className={`flex-1 py-2 rounded-full text-sm font-normal transition-all border ${
+              activeTab === 'NT' ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20' : 'bg-transparent text-muted-foreground border-white/10 hover:bg-secondary'
+            }`}
           >
             Novo Testamento
           </button>
         </div>
 
-        {filteredBooks.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground">
-            Nenhum livro encontrado para &quot;{searchQuery}&quot;
-          </div>
-        ) : (
-          renderBooks(displayedBooks)
-        )}
+        <div className="flex flex-col gap-2">
+          {displayedBooks.map((book) => (
+            <button
+              key={book.id}
+              onClick={() => router.push(`/bible/${book.id}`)}
+              className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border hover:bg-secondary/30 transition-all group text-left"
+            >
+              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold group-hover:scale-110 transition-transform">
+                {book.id.substring(0, 2).toUpperCase()}
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold">{book.name}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-500" 
+                      style={{ width: `${bookProgress[book.id] || 0}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-muted-foreground">{bookProgress[book.id] || 0}%</span>
+                </div>
+              </div>
+              <ChevronRight size={18} className="text-muted-foreground group-hover:text-primary transition-colors" />
+            </button>
+          ))}
+        </div>
       </main>
     </div>
   );
