@@ -120,16 +120,23 @@ export default function ChapterPage() {
   // Load highlights and reading history
   useEffect(() => {
     if (bookId && chapterNum) {
-      getHighlights(bookId, chapterNum).then(data => {
-        const hlMap: Record<number, string> = {};
-        data.forEach(h => { hlMap[h.verse] = h.color; });
-        setHighlights(hlMap);
-      });
+      const loadMetadata = async () => {
+        try {
+          const [hlData, readData] = await Promise.all([
+            getHighlights(bookId, chapterNum),
+            getVerseReadHistory(bookId, chapterNum)
+          ]);
 
-      getVerseReadHistory(bookId, chapterNum).then(data => {
-        setReadVerses(data);
-      });
+          const hlMap: Record<number, string> = {};
+          hlData.forEach(h => { hlMap[h.verse] = h.color; });
+          setHighlights(hlMap);
+          setReadVerses(readData);
+        } catch (e) {
+          console.error('Failed to load chapter metadata', e);
+        }
+      };
 
+      loadMetadata();
       // Silent tracking: save that user accessed this chapter
       saveReadingHistory(bookId, chapterNum);
     }

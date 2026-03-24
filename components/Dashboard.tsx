@@ -37,14 +37,26 @@ export default function Dashboard() {
   const todayStr = new Date().toISOString().split('T')[0];
 
   useEffect(() => {
-    const loadProfile = async () => {
-      if (user) {
-        const p = await getProfile();
+    const loadInitialData = async () => {
+      if (!user) return;
+
+      try {
+        const [p, studies, vHistory] = await Promise.all([
+          getProfile(),
+          getStudies(),
+          getVerseHistory()
+        ]);
+
         setProfile(p);
+        setHistory(studies);
+        setVerseHistory(vHistory);
+      } catch (e) {
+        console.error('Failed to load initial data', e);
       }
     };
-    loadProfile();
-  }, [user, showProfile]);
+
+    loadInitialData();
+  }, [user]);
 
   useEffect(() => {
     const handleSharedAction = async () => {
@@ -78,20 +90,6 @@ export default function Dashboard() {
   }, [user, router]);
 
   useEffect(() => {
-    const loadData = async () => {
-      // Load history from Supabase/Local
-      const studies = await getStudies();
-      setHistory(studies);
-
-      // Load verse history
-      const vHistory = await getVerseHistory();
-      setVerseHistory(vHistory);
-    };
-
-    loadData();
-  }, []);
-
-  useEffect(() => {
     const loadVerse = async () => {
       setLoadingVerse(true);
       const savedVerse = await getVerseOfTheDayForDate(selectedDate);
@@ -101,10 +99,13 @@ export default function Dashboard() {
         setLoadingVerse(false);
       } else if (selectedDate === todayStr) {
         // Generate new verse for today based on history
-        const userGoals = await getGoals();
-        const historySummary = history.map(h => h.title).join(', ');
-        
         try {
+          const [userGoals, currentHistory] = await Promise.all([
+            getGoals(),
+            getStudies()
+          ]);
+          
+          const historySummary = currentHistory.map(h => h.title).join(', ');
           const v = await generateVerseOfTheDay(userGoals, historySummary);
           setVerse(v);
           await saveVerseOfTheDayForDate(selectedDate, v);
@@ -130,7 +131,7 @@ export default function Dashboard() {
     };
 
     loadVerse();
-  }, [selectedDate, history, todayStr]);
+  }, [selectedDate, todayStr]);
 
   const getWeekDays = () => {
     const days = [];
@@ -228,6 +229,7 @@ export default function Dashboard() {
               src="https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png"
               alt="IA Bíblia Logo"
               fill
+              priority
               className="object-cover"
               referrerPolicy="no-referrer"
             />

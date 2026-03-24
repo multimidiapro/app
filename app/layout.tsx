@@ -7,18 +7,21 @@ import './globals.css';
 const inter = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
+  display: 'swap',
 });
 
 const cormorant = Cormorant_Garamond({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
   variable: '--font-serif',
+  display: 'swap',
 });
 
 const outfit = Outfit({
   subsets: ['latin'],
   weight: ['500', '600', '700', '800'],
   variable: '--font-outfit',
+  display: 'swap',
 });
 
 export const viewport = {
@@ -92,6 +95,25 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
                     window.addEventListener('load', function() {
                       navigator.serviceWorker.register('/sw.js').then(function(registration) {
                         console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                        
+                        // Check for updates every hour
+                        setInterval(() => {
+                          registration.update();
+                        }, 1000 * 60 * 60);
+
+                        registration.onupdatefound = () => {
+                          const installingWorker = registration.installing;
+                          if (installingWorker) {
+                            installingWorker.onstatechange = () => {
+                              if (installingWorker.state === 'installed') {
+                                if (navigator.serviceWorker.controller) {
+                                  console.log('New version available, forcing reload...');
+                                  window.location.reload();
+                                }
+                              }
+                            };
+                          }
+                        };
                       }, function(err) {
                         console.log('ServiceWorker registration failed: ', err);
                       });

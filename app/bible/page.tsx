@@ -36,43 +36,45 @@ export default function BiblePage() {
       const totalVerses = Object.values(BIBLE_METADATA).reduce((acc, book) => acc + book.reduce((a, b) => a + b, 0), 0);
 
       // Fetch read verses
-      const { data: history } = await supabase
+      const { data: history, error: historyError } = await supabase
         .from('reading_history')
         .select('book_id, chapter, verse')
         .eq('user_id', session.user.id);
 
-      if (history) {
-        // Use a Set to ensure we only count unique verses (book-chapter-verse)
-        const uniqueRead = new Set(history.filter(h => h.verse !== null).map(h => `${h.book_id}-${h.chapter}-${h.verse}`));
-        
-        // FILTER: Only count verses that exist in our metadata to avoid overcounting
-        const validRead = Array.from(uniqueRead).filter(key => {
-          const [bookId, chapter, verse] = key.split('-');
-          const c = parseInt(chapter);
-          const v = parseInt(verse);
-          const maxVerses = BIBLE_METADATA[bookId]?.[c - 1] || 0;
-          return v > 0 && v <= maxVerses;
-        });
-        
-        const readCount = validRead.length;
-        setProgress({ totalRead: readCount, totalVerses });
+      if (historyError) {
+        console.error('Error fetching history:', historyError);
+        setLoading(false);
+        return;
+      }
 
-        // Calculate per-book progress
+      if (history) {
+        // Optimize: Pre-calculate unique read verses once
+        const uniqueRead = new Set();
         const bookMap: Record<string, number> = {};
+        const bookReadCounts: Record<string, Set<string>> = {};
+
+        history.forEach(h => {
+          if (h.verse !== null) {
+            const key = `${h.book_id}-${h.chapter}-${h.verse}`;
+            
+            // Validate verse exists in metadata
+            const maxVerses = BIBLE_METADATA[h.book_id]?.[h.chapter - 1] || 0;
+            if (h.verse > 0 && h.verse <= maxVerses) {
+              uniqueRead.add(key);
+              
+              if (!bookReadCounts[h.book_id]) {
+                bookReadCounts[h.book_id] = new Set();
+              }
+              bookReadCounts[h.book_id].add(`${h.chapter}-${h.verse}`);
+            }
+          }
+        });
+
+        setProgress({ totalRead: uniqueRead.size, totalVerses });
+
+        // Calculate per-book progress efficiently
         BIBLE_BOOKS.forEach(book => {
-          const bookReadHistory = history.filter(h => h.book_id === book.id && h.verse !== null);
-          const uniqueBookRead = new Set(bookReadHistory.map(h => `${h.chapter}-${h.verse}`));
-          
-          // Filter valid verses for this book
-          const validBookRead = Array.from(uniqueBookRead).filter(key => {
-            const [chapter, verse] = key.split('-');
-            const c = parseInt(chapter);
-            const v = parseInt(verse);
-            const maxVerses = BIBLE_METADATA[book.id]?.[c - 1] || 0;
-            return v > 0 && v <= maxVerses;
-          });
-          
-          const bookReadCount = validBookRead.length;
+          const bookReadCount = bookReadCounts[book.id]?.size || 0;
           const bookTotalVerses = getTotalVersesInBook(book.id);
           bookMap[book.id] = bookTotalVerses > 0 ? Math.min(100, Math.round((bookReadCount / bookTotalVerses) * 100)) : 0;
         });

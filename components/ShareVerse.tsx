@@ -274,7 +274,15 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
                         selectedBg === t.url ? 'border-primary scale-95' : 'border-transparent hover:border-primary/50'
                       }`}
                     >
-                      <img src={t.url} alt={t.name} className="w-full h-full object-cover" />
+                      <div className="relative w-full h-full">
+                        <Image 
+                          src={t.url} 
+                          alt={t.name} 
+                          fill 
+                          className="object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
                     </button>
                   ))}
                   {customBg && (
@@ -282,7 +290,15 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
                       onClick={() => setSelectedBg(null)}
                       className={`aspect-square rounded-lg md:rounded-xl overflow-hidden border-2 border-primary scale-95`}
                     >
-                      <img src={customBg} alt="Custom" className="w-full h-full object-cover" />
+                      <div className="relative w-full h-full">
+                        <Image 
+                          src={customBg} 
+                          alt="Custom" 
+                          fill 
+                          className="object-cover" 
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
                     </button>
                   )}
                 </div>

@@ -1,11 +1,16 @@
 import { supabase } from './supabase';
 
 // Helper to get a persistent device ID for anonymous users or logged in user
+let cachedUserId: string | null = null;
+
 const getUserId = async () => {
+  if (cachedUserId) return cachedUserId;
+
   if (supabase) {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
-      return session.user.id;
+      cachedUserId = session.user.id;
+      return cachedUserId;
     }
   }
 
@@ -15,6 +20,7 @@ const getUserId = async () => {
     id = crypto.randomUUID();
     localStorage.setItem('biblia_ai_user_id', id);
   }
+  cachedUserId = id;
   return id;
 };
 
