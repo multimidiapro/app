@@ -1,9 +1,7 @@
 'use client';
 import { X, Heart, MessageCircle } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
 
 export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { user } = useAuth();
 
   if (!isOpen) return null;
 
