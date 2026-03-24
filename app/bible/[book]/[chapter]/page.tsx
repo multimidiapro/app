@@ -7,10 +7,9 @@ import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { generateVerseExplanation, generateBibleText } from '@/lib/ai';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { formatBibleText, linkifyBibleReferencesMarkdown } from '@/lib/bible-utils';
-import { getHighlights, saveHighlight, removeHighlight, saveStudy, saveReadingHistory, getVerseReadHistory, markChapterCompleted, removeReadingHistory, fetchAndCacheChapter, getGeneratedImageById } from '@/lib/db';
+import { getHighlights, saveHighlight, removeHighlight, saveStudy, saveReadingHistory, getVerseReadHistory, markChapterCompleted, removeReadingHistory, fetchAndCacheChapter } from '@/lib/db';
 import { ShareVerse } from '@/components/ShareVerse';
 import ReactMarkdown from 'react-markdown';
-import Image from 'next/image';
 
 type Verse = {
   book_id: string;
@@ -43,18 +42,15 @@ export default function ChapterPage() {
   const searchParams = useSearchParams();
   const bookId = decodeURIComponent(params.book as string);
   const chapterNum = parseInt(params.chapter as string);
-  const sharedImgId = searchParams.get('img_id');
-  const sharedBg = searchParams.get('bg');
   const sharedVerse = searchParams.get('v');
 
   const [data, setData] = useState<ChapterData | null>(null);
-  const [sharedImageUrl, setSharedImageUrl] = useState<string | null>(null);
-  const [showSharedImage, setShowSharedImage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
   const [selectedVerses, setSelectedVerses] = useState<number[]>([]);
   const [highlights, setHighlights] = useState<Record<number, string>>({});
+  const [flashVerse, setFlashVerse] = useState<number | null>(null);
   const [readVerses, setReadVerses] = useState<number[]>([]);
   const [chapterCompleted, setChapterCompleted] = useState(false);
   const [showStudyPanel, setShowStudyPanel] = useState(false);
@@ -66,20 +62,6 @@ export default function ChapterPage() {
     b.id === bookId || 
     b.id.replace(/\s+/g, '') === bookId.replace(/\s+/g, '')
   );
-
-  useEffect(() => {
-    if (sharedBg) {
-      setSharedImageUrl(decodeURIComponent(sharedBg));
-      setShowSharedImage(true);
-    } else if (sharedImgId) {
-      getGeneratedImageById(sharedImgId).then(img => {
-        if (img) {
-          setSharedImageUrl(img.image_url);
-          setShowSharedImage(true);
-        }
-      });
-    }
-  }, [sharedImgId, sharedBg]);
 
   useEffect(() => {
     const fetchChapter = async () => {
@@ -153,20 +135,34 @@ export default function ChapterPage() {
     }
   }, [bookId, chapterNum]);
 
-  // Scroll to hash
+  // Scroll to hash or shared verse
   useEffect(() => {
-    if (data && window.location.hash) {
-      const id = window.location.hash.substring(1);
-      setTimeout(() => {
-        const el = document.getElementById(id);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          el.classList.add('animate-highlight-pulse');
-          setTimeout(() => el.classList.remove('animate-highlight-pulse'), 3000);
-        }
-      }, 500);
+    if (data) {
+      const verseToHighlight = sharedVerse ? parseInt(sharedVerse) : null;
+      const hashId = window.location.hash.substring(1);
+      
+      if (verseToHighlight) {
+        setFlashVerse(verseToHighlight);
+        setTimeout(() => {
+          const el = document.getElementById(`v${verseToHighlight}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          // Remove flash after 4 seconds
+          setTimeout(() => setFlashVerse(null), 4000);
+        }, 500);
+      } else if (hashId) {
+        setTimeout(() => {
+          const el = document.getElementById(hashId);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('animate-highlight-pulse');
+            setTimeout(() => el.classList.remove('animate-highlight-pulse'), 3000);
+          }
+        }, 500);
+      }
     }
-  }, [data]);
+  }, [data, sharedVerse]);
 
   const handleVerseClick = (verseNum: number) => {
     setSelectedVerses(prev => 
@@ -323,7 +319,7 @@ export default function ChapterPage() {
                         onClick={() => handleVerseClick(verse.verse)}
                         className={`cursor-pointer transition-all duration-200 rounded px-1 py-0.5 relative flex-1 block ${
                           isSelected ? 'ring-2 ring-primary bg-primary/20' : 'hover:bg-secondary'
-                        } ${isRead ? 'opacity-70' : ''}`}
+                        } ${isRead ? 'opacity-70' : ''} ${flashVerse === verse.verse ? 'ring-2 ring-primary bg-primary/30 animate-pulse' : ''}`}
                         style={!isSelected && highlightColor ? { backgroundColor: highlightColor, color: '#0f172a' } : {}}
                       >
                         <sup className="text-xs font-sans font-bold text-muted-foreground mr-1">
@@ -411,43 +407,6 @@ export default function ChapterPage() {
             >
               <BookOpen size={18}/> Estudar {selectedVerses.length} {selectedVerses.length === 1 ? 'versículo' : 'versículos'}
             </button>
-          </div>
-        </div>
-      )}
-
-      {/* Shared Image Modal */}
-      {showSharedImage && sharedImageUrl && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="relative w-full max-w-lg aspect-square bg-slate-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col items-center justify-center p-8 md:p-12 text-white text-center">
-            <button 
-              onClick={() => setShowSharedImage(false)}
-              className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/60 rounded-full text-white z-20 transition-colors"
-            >
-              <X size={24} />
-            </button>
-            
-            <div className="absolute inset-0 z-0">
-              <Image 
-                src={sharedImageUrl} 
-                alt="Shared Background" 
-                fill
-                className="object-cover"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 bg-black/30"></div>
-            </div>
-
-            <div className="relative z-10 flex flex-col items-center gap-4 md:gap-8">
-              <p className="text-xl md:text-2xl leading-tight font-medium drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] font-serif">
-                &ldquo;{data?.verses.find(v => v.verse === parseInt(sharedVerse || '0'))?.text || 'Carregando...'}&rdquo;
-              </p>
-              <p className="text-sm md:text-lg font-bold text-white/90 tracking-wide font-sans drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] uppercase">
-                {bookInfo.name} {chapterNum}:{sharedVerse}
-              </p>
-              <div className="mt-2 text-[10px] text-white/60 font-medium tracking-tighter uppercase">
-                IA Bíblia • A Bíblia explica a Bíblia
-              </div>
-            </div>
           </div>
         </div>
       )}

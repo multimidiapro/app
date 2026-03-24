@@ -70,30 +70,77 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
   };
 
   const handleShare = async () => {
+    if (!cardRef.current) return;
     setIsSharing(true);
     try {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
       const bgUrl = customBg || selectedBg || '';
       
-      // We share a link that includes the background as a parameter
-      // The target page should handle this parameter to show the preview
       const shareUrl = bookId && chapter && verse 
         ? `${baseUrl}/bible/${bookId}/${chapter}?v=${verse}${bgUrl ? `&bg=${encodeURIComponent(bgUrl)}` : ''}`
         : baseUrl;
         
       const shareText = `"${text}" - ${reference}\n\nVeja este versículo no IA Bíblia: ${shareUrl}`;
 
-      if (navigator.share) {
-        await navigator.share({
-          title: reference,
-          text: shareText,
+      // Generate the image to share it as a file if supported
+      let file: File | null = null;
+      try {
+        const dataUrl = await toPng(cardRef.current, {
+          quality: 0.95,
+          width: 1080,
+          height: 1080,
         });
-      } else {
-        await navigator.clipboard.writeText(shareText);
-        alert('Link copiado!');
+
+        // Convert dataUrl to File object
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        file = new File([blob], 'ia-biblia.png', { type: 'image/png' });
+      } catch (imgErr) {
+        console.error('Error generating image for share:', imgErr);
       }
+
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            title: reference,
+            text: shareText,
+            files: [file],
+          });
+          return; // Success
+        } catch (shareErr) {
+          console.error('Error sharing with files:', shareErr);
+          // Fall through to next share method
+        }
+      }
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: reference,
+            text: shareText,
+            url: shareUrl,
+          });
+          return; // Success
+        } catch (shareErr) {
+          console.error('Error sharing with navigator.share:', shareErr);
+          // Fall through to clipboard
+        }
+      }
+
+      // Final fallback: Clipboard
+      await navigator.clipboard.writeText(shareText);
+      alert('Link copiado para a área de transferência!');
     } catch (error) {
       console.error('Error sharing:', error);
+      // Fallback to clipboard if sharing fails (common on PC)
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const bgUrl = customBg || selectedBg || '';
+      const shareUrl = bookId && chapter && verse 
+        ? `${baseUrl}/bible/${bookId}/${chapter}?v=${verse}${bgUrl ? `&bg=${encodeURIComponent(bgUrl)}` : ''}`
+        : baseUrl;
+      const shareText = `"${text}" - ${reference}\n\nVeja este versículo no IA Bíblia: ${shareUrl}`;
+      await navigator.clipboard.writeText(shareText);
+      alert('Link copiado para a área de transferência!');
     } finally {
       setIsSharing(false);
       setShowOptions(false);
@@ -208,10 +255,10 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-wider">Templates</span>
-                  <label className="text-[10px] md:text-xs font-bold text-primary hover:underline cursor-pointer flex items-center gap-1">
+                  <label className="relative text-[10px] md:text-xs font-bold text-primary hover:underline cursor-pointer flex items-center gap-1 bg-primary/10 px-2 py-1 rounded-full">
                     <Upload size={12} />
                     Usar Minha Foto
-                    <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
+                    <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleFileUpload} />
                   </label>
                 </div>
                 
