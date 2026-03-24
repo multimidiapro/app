@@ -43,6 +43,19 @@ const nextConfig: NextConfig = {
             key: 'Content-Type',
             value: 'application/javascript',
           },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
+        ],
+      },
+      {
+        source: '/',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
+          },
         ],
       },
       {
@@ -51,6 +64,10 @@ const nextConfig: NextConfig = {
           {
             key: 'Content-Type',
             value: 'application/json',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate',
           },
         ],
       },
