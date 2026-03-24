@@ -901,6 +901,35 @@ export async function sendNotification(notification: Omit<AppNotification, 'id' 
   }
 }
 
+export type BackgroundTemplate = {
+  id: string;
+  url: string;
+  name: string;
+};
+
+export async function getBackgroundTemplates(): Promise<BackgroundTemplate[]> {
+  if (supabase) {
+    try {
+      const { data, error } = await supabase
+        .from('background_templates')
+        .select('*')
+        .order('created_at', { ascending: true });
+        
+      if (!error && data) return data;
+    } catch (e) {
+      console.error('Supabase error getting templates', e);
+    }
+  }
+  
+  // Fallback templates
+  return [
+    { id: '1', url: 'https://picsum.photos/seed/bible1/1080/1080', name: 'Natureza 1' },
+    { id: '2', url: 'https://picsum.photos/seed/bible2/1080/1080', name: 'Natureza 2' },
+    { id: '3', url: 'https://picsum.photos/seed/bible3/1080/1080', name: 'Montanha' },
+    { id: '4', url: 'https://picsum.photos/seed/bible4/1080/1080', name: 'Mar' },
+  ];
+}
+
 export async function checkAppUpdate(): Promise<{ hasUpdate: boolean; version?: string }> {
   try {
     const res = await fetch('/version.json', { cache: 'no-store' });

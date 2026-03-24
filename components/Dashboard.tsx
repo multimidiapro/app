@@ -222,7 +222,18 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen max-w-4xl mx-auto px-4 py-4 md:py-8 flex flex-col gap-8 md:gap-12 relative z-10">
       <header className="flex items-center justify-between gap-4">
-        <h1 className="font-outfit text-2xl md:text-3xl font-bold tracking-tight text-foreground">IA Bíblia</h1>
+        <div className="flex items-center gap-3">
+          <div className="relative w-10 h-10 md:w-12 md:h-12 rounded-xl overflow-hidden shadow-md border border-primary/20">
+            <Image 
+              src="https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png"
+              alt="IA Bíblia Logo"
+              fill
+              className="object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+          <h1 className="font-outfit text-2xl md:text-3xl font-bold tracking-tight text-foreground">IA Bíblia</h1>
+        </div>
         
         <div className="flex items-center gap-2 md:gap-4">
           <button 

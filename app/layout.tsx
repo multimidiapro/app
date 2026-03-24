@@ -34,11 +34,10 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   icons: {
     icon: [
-      { url: '/favicon.ico' },
-      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: 'https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png' },
     ],
     apple: [
-      { url: 'https://picsum.photos/seed/bible-icon-192/192/192', sizes: '192x192', type: 'image/png' },
+      { url: 'https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png', sizes: '192x192', type: 'image/png' },
     ],
   },
   appleWebApp: {
@@ -52,11 +51,20 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'pt_BR',
     siteName: 'IA Bíblia',
+    images: [
+      {
+        url: 'https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png',
+        width: 1200,
+        height: 630,
+        alt: 'IA Bíblia',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'IA Bíblia - Estudo Bíblico',
     description: 'Bíblia Online de Estudo Bíblico com Inteligência Artificial. A Bíblia explica a Bíblia.',
+    images: ['https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png'],
   },
 };
 

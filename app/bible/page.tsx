@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, Search, BookOpen } from 'lucide-react';
+import Image from 'next/image';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { supabase } from '@/lib/supabase';
@@ -158,7 +159,16 @@ export default function BiblePage() {
             >
               <ArrowLeft size={20} className="text-muted-foreground" />
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
+              <div className="relative w-8 h-8 md:w-10 md:h-10 rounded-lg overflow-hidden shadow-sm border border-primary/20">
+                <Image 
+                  src="https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png"
+                  alt="IA Bíblia Logo"
+                  fill
+                  className="object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
               <h1 className="font-outfit text-xl md:text-2xl font-bold text-foreground">Bíblia Sagrada</h1>
             </div>
           </div>

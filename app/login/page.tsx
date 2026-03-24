@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { Mail, Lock, Loader2, AlertCircle, ShieldCheck, RefreshCw } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -92,6 +93,17 @@ export default function LoginPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md bg-card border border-border/50 rounded-2xl shadow-2xl p-8 relative z-10 backdrop-blur-sm"
       >
+        <div className="flex justify-center mb-6">
+          <div className="relative w-24 h-24 rounded-2xl overflow-hidden shadow-lg border border-primary/20">
+            <Image 
+              src="https://dpceyubrwftpxuddlzmc.supabase.co/storage/v1/object/public/assets/IA%20Biblia%20em%20Cristo.png"
+              alt="IA Bíblia Logo"
+              fill
+              className="object-cover"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold font-outfit tracking-tight mb-2">
             {isOtpPhase ? 'Verifique seu e-mail' : (isLogin ? 'Bem-vindo de volta' : 'Crie sua conta')}
