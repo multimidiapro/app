@@ -100,11 +100,46 @@ export default function RootLayout({children}: {children: React.ReactNode}) {
 
                   // Handle Next.js chunk load errors (404s for old builds)
                   window.addEventListener('error', function(e) {
-                    if (e.message && (e.message.includes('Loading chunk') || e.message.includes('Loading CSS chunk'))) {
-                      console.warn('Chunk load error detected, forcing reload...', e.message);
-                      window.location.reload();
+                    const msg = e.message || '';
+                    const isChunkError = msg.includes('Loading chunk') || msg.includes('Loading CSS chunk') || msg.includes('ChunkLoadError');
+                    
+                    // Also check for failed script/link tags in _next/static
+                    const target = e.target;
+                    const isAssetError = target && (target.tagName === 'SCRIPT' || target.tagName === 'LINK') && 
+                                        (target.src || target.href || '').includes('_next/static');
+
+                    if (isChunkError || isAssetError) {
+                      console.warn('Asset load error detected, forcing reload...', msg);
+                      // Avoid infinite reload loops
+                      const lastReload = sessionStorage.getItem('last_chunk_reload');
+                      const now = Date.now();
+                      if (!lastReload || now - parseInt(lastReload) > 5000) {
+                        sessionStorage.setItem('last_chunk_reload', now.toString());
+                        window.location.reload();
+                      }
                     }
                   }, true);
+
+                  window.addEventListener('unhandledrejection', function(e) {
+                    const reason = e.reason || {};
+                    if (reason.name === 'ChunkLoadError' || (reason.message && reason.message.includes('Loading chunk'))) {
+                      console.warn('Unhandled ChunkLoadError detected, forcing reload...');
+                      const lastReload = sessionStorage.getItem('last_chunk_reload');
+                      const now = Date.now();
+                      if (!lastReload || now - parseInt(lastReload) > 5000) {
+                        sessionStorage.setItem('last_chunk_reload', now.toString());
+                        window.location.reload();
+                      }
+                    }
+                  });
+
+                  // Check for Next.js generic error page on a timer
+                  setInterval(function() {
+                    if (document.body && document.body.innerText && document.body.innerText.includes('Application error: a client-side exception has occurred')) {
+                      console.warn('Next.js generic error detected, forcing reload...');
+                      window.location.reload();
+                    }
+                  }, 2000);
                 `,
               }}
             />
