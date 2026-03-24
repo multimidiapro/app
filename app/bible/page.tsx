@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { 
   ArrowLeft, 
   Search, 
-  ChevronRight,
-  Hash
+  ChevronRight
 } from 'lucide-react';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import { ThemeToggle } from '@/components/theme-toggle';
@@ -16,11 +15,9 @@ import Link from 'next/link';
 
 export default function BiblePage() {
   const router = useRouter();
+  const [bookProgress, setBookProgress] = useState<Record<string, number>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'VT' | 'NT'>('VT');
-  const [bookProgress, setBookProgress] = useState<Record<string, number>>({});
-  const [showGoToVerse, setShowGoToVerse] = useState(false);
-  const [goToRef, setGoToRef] = useState('');
 
   useEffect(() => {
     // Load progress from Supabase
@@ -83,34 +80,32 @@ export default function BiblePage() {
     checkAuthAndLoadProgress();
   }, [router]);
 
-  const handleGoToVerse = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!goToRef) return;
-    
-    // Simple parser: "Joao 3:16" or "Joao 3"
-    const parts = goToRef.trim().split(' ');
-    if (parts.length < 2) return;
-    
-    const bookName = parts.slice(0, parts.length - 1).join(' ');
-    const ref = parts[parts.length - 1];
-    const [chapter, verse] = ref.split(':');
-    
-    const book = BIBLE_BOOKS.find(b => 
-      b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") === 
-      bookName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    );
-    
-    if (book) {
-      router.push(`/bible/${book.id}/${chapter}${verse ? `?v=${verse}` : ''}`);
-    }
-  };
-
   const filteredBooks = BIBLE_BOOKS.filter(b => 
     b.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .includes(searchQuery.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
   );
 
   const displayedBooks = filteredBooks.filter(b => b.testament === activeTab);
+
+  const getAbbreviation = (name: string) => {
+    const parts = name.split(' ');
+    if (parts.length > 1 && /^\d/.test(parts[0])) {
+      const number = parts[0];
+      const bookName = parts[1];
+      const prefix = bookName.substring(0, 2).toUpperCase();
+      // Special cases for requested format
+      if (bookName.startsWith('Reis')) return `${number}RS`;
+      if (bookName.startsWith('Crônicas')) return `${number}CR`;
+      if (bookName.startsWith('Coríntios')) return `${number}CO`;
+      if (bookName.startsWith('Samuel')) return `${number}SM`;
+      if (bookName.startsWith('Tessalonicenses')) return `${number}TS`;
+      if (bookName.startsWith('Timóteo')) return `${number}TM`;
+      if (bookName.startsWith('Pedro')) return `${number}PE`;
+      if (bookName.startsWith('João')) return `${number}JO`;
+      return `${number}${prefix}`;
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
@@ -125,39 +120,11 @@ export default function BiblePage() {
         </div>
         <h1 className="text-xl font-bold flex-1">Bíblia</h1>
         <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setShowGoToVerse(!showGoToVerse)}
-            className={`p-2 rounded-full transition-colors ${showGoToVerse ? 'bg-primary text-primary-foreground' : 'hover:bg-secondary'}`}
-          >
-            <Hash size={20} />
-          </button>
           <ThemeToggle />
         </div>
       </header>
 
       <main className="flex-1 p-4 max-w-2xl mx-auto w-full pb-20">
-        {showGoToVerse && (
-          <form onSubmit={handleGoToVerse} className="mb-6 animate-in fade-in slide-in-from-top-4">
-            <div className="relative">
-              <input
-                type="text"
-                value={goToRef}
-                onChange={(e) => setGoToRef(e.target.value)}
-                placeholder="Ex: João 3:16 ou Romanos 12"
-                className="w-full bg-secondary/50 border border-border rounded-2xl py-4 px-6 pr-12 font-bold focus:outline-none focus:ring-2 focus:ring-primary transition-all"
-                autoFocus
-              />
-              <button 
-                type="submit"
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
-              >
-                <ChevronRight size={20} />
-              </button>
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-2 px-2 uppercase font-bold tracking-wider">Ir para versículo</p>
-          </form>
-        )}
-
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
@@ -198,7 +165,7 @@ export default function BiblePage() {
               className="flex items-center gap-4 p-4 rounded-2xl bg-card border border-border hover:bg-secondary/30 transition-all group text-left"
             >
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold group-hover:scale-110 transition-transform">
-                {book.id.substring(0, 2).toUpperCase()}
+                {getAbbreviation(book.name)}
               </div>
               <div className="flex-1">
                 <h3 className="font-bold">{book.name}</h3>

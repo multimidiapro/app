@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Search, BookOpen, Clock, ChevronRight, User, Lock, Calendar, X, MessageSquare, Heart } from 'lucide-react';
@@ -11,10 +11,23 @@ import { ShareVerse } from '@/components/ShareVerse';
 import { useAuth } from '@/hooks/useAuth';
 import { BIBLE_BOOKS } from '@/lib/bible-data';
 import LZString from 'lz-string';
-import { ProfileMenu } from '@/components/ProfileMenu';
-import { FeedbackModal } from '@/components/FeedbackModal';
-import { DonationModal } from '@/components/DonationModal';
-import { NotificationCenter } from '@/components/NotificationCenter';
+
+// Lazy load modals for better initial performance
+const ProfileMenu = lazy(() => import('@/components/ProfileMenu').then(mod => ({ default: mod.ProfileMenu })));
+const FeedbackModal = lazy(() => import('@/components/FeedbackModal').then(mod => ({ default: mod.FeedbackModal })));
+const DonationModal = lazy(() => import('@/components/DonationModal').then(mod => ({ default: mod.DonationModal })));
+const NotificationCenter = lazy(() => import('@/components/NotificationCenter').then(mod => ({ default: mod.NotificationCenter })));
+
+const placeholders = [
+  "Ex: Amor de Deus",
+  "Ex: Me ajude a superar",
+  "Ex: Aprender mais sobre a fé",
+  "Me ajude a ter fé",
+  "Explique João 3:16",
+  "Ajudar o próximo",
+  "A salvação",
+  "Pergunte qualquer coisa"
+];
 
 export default function Dashboard() {
   const router = useRouter();
@@ -33,6 +46,14 @@ export default function Dashboard() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [showDonation, setShowDonation] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIndex((prev) => (prev + 1) % placeholders.length);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, []);
 
   const todayStr = new Date().toISOString().split('T')[0];
 
@@ -263,7 +284,9 @@ export default function Dashboard() {
             <Heart size={20} />
           </button>
 
-          <NotificationCenter />
+          <Suspense fallback={<div className="w-10 h-10 rounded-full bg-secondary animate-pulse" />}>
+            <NotificationCenter />
+          </Suspense>
 
           {user ? (
             <button 
@@ -303,7 +326,7 @@ export default function Dashboard() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Ex: Ansiedade ou João 3"
+              placeholder={placeholders[placeholderIndex]}
               className="w-full pl-12 pr-24 md:pr-32 py-3 md:py-4 bg-card border border-border rounded-2xl shadow-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-base md:text-lg transition-all text-foreground placeholder:text-muted-foreground"
             />
             <button 
@@ -338,7 +361,7 @@ export default function Dashboard() {
             </div>
 
             {/* Day Selector */}
-            <div className="flex justify-between items-center gap-1 md:gap-4 pb-1">
+            <div className="grid grid-cols-7 gap-1 pb-1">
               {weekDays.map((dateStr) => {
                 const date = new Date(dateStr + 'T12:00:00');
                 const isToday = dateStr === todayStr;
@@ -354,20 +377,20 @@ export default function Dashboard() {
                     key={dateStr}
                     disabled={!isUnlocked}
                     onClick={() => setSelectedDate(dateStr)}
-                    className={`flex-1 flex flex-col items-center gap-1 p-1 md:p-2 rounded-xl transition-all ${
+                    className={`flex flex-col items-center gap-0.5 p-1 md:p-2 rounded-xl transition-all ${
                       isSelected 
                         ? 'bg-primary text-primary-foreground shadow-md shadow-primary/20 scale-105' 
                         : 'hover:bg-secondary text-muted-foreground'
                     } ${!isUnlocked ? 'opacity-40 cursor-not-allowed' : ''}`}
                   >
-                    <span className="text-[8px] md:text-[10px] font-bold uppercase tracking-tighter">{dayName}</span>
-                    <div className={`w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full border-2 ${
+                    <span className="text-[7px] md:text-[10px] font-bold uppercase tracking-tighter truncate w-full text-center">{dayName}</span>
+                    <div className={`w-5 h-5 md:w-8 md:h-8 flex items-center justify-center rounded-full border-2 ${
                       isSelected ? 'border-primary-foreground/30' : 'border-transparent'
                     }`}>
                       {!isUnlocked ? (
-                        <Lock size={8} className="md:w-3 md:h-3" />
+                        <Lock size={7} className="md:w-3 md:h-3" />
                       ) : (
-                        <span className="text-[10px] md:text-sm font-bold">{dayNum}</span>
+                        <span className="text-[9px] md:text-sm font-bold">{dayNum}</span>
                       )}
                     </div>
                   </button>
@@ -592,13 +615,15 @@ export default function Dashboard() {
       )}
 
       {/* Profile Menu */}
-      <ProfileMenu isOpen={showProfile} onClose={() => setShowProfile(false)} />
-      
-      {/* Feedback Modal */}
-      <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />
-      
-      {/* Donation Modal */}
-      <DonationModal isOpen={showDonation} onClose={() => setShowDonation(false)} />
+      <Suspense fallback={null}>
+        {showProfile && <ProfileMenu isOpen={showProfile} onClose={() => setShowProfile(false)} />}
+        
+        {/* Feedback Modal */}
+        {showFeedback && <FeedbackModal isOpen={showFeedback} onClose={() => setShowFeedback(false)} />}
+        
+        {/* Donation Modal */}
+        {showDonation && <DonationModal isOpen={showDonation} onClose={() => setShowDonation(false)} />}
+      </Suspense>
     </div>
   );
 }

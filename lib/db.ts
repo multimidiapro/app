@@ -2,6 +2,9 @@ import { supabase } from './supabase';
 
 // Helper to get a persistent device ID for anonymous users or logged in user
 let cachedUserId: string | null = null;
+let cachedProfile: Profile | null = null;
+let cachedStudies: StudyHistory[] | null = null;
+let cachedVerseHistory: string[] | null = null;
 
 const getUserId = async () => {
   if (cachedUserId) return cachedUserId;
@@ -129,8 +132,10 @@ export async function removeHighlight(bookId: string, chapter: number, verse: nu
 
 // Studies & History
 export async function getStudies(): Promise<StudyHistory[]> {
+  if (cachedStudies) return cachedStudies;
   const userId = await getUserId();
   
+  let studies: StudyHistory[] = [];
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -139,22 +144,33 @@ export async function getStudies(): Promise<StudyHistory[]> {
         .eq('user_id', userId)
         .order('date', { ascending: false });
         
-      if (!error && data) return data;
+      if (!error && data) {
+        studies = data;
+      }
     } catch (e) {
       console.error('Supabase error', e);
     }
   }
   
-  if (typeof window !== 'undefined') {
+  if (studies.length === 0 && typeof window !== 'undefined') {
     const local = localStorage.getItem('biblia_ai_history');
-    if (local) return JSON.parse(local);
+    if (local) studies = JSON.parse(local);
   }
-  return [];
+  
+  cachedStudies = studies;
+  return studies;
 }
 
 export async function saveStudy(study: StudyHistory) {
   const userId = await getUserId();
   
+  // Update cache
+  if (cachedStudies) {
+    cachedStudies = [study, ...cachedStudies.filter(s => s.id !== study.id)];
+  } else {
+    cachedStudies = [study];
+  }
+
   if (supabase) {
     try {
       await supabase
@@ -698,6 +714,7 @@ export type Profile = {
 };
 
 export async function getProfile(): Promise<Profile | null> {
+  if (cachedProfile) return cachedProfile;
   const userId = await getUserId();
   
   if (supabase) {
@@ -708,7 +725,10 @@ export async function getProfile(): Promise<Profile | null> {
         .eq('id', userId)
         .maybeSingle();
         
-      if (data) return data;
+      if (data) {
+        cachedProfile = data;
+        return data;
+      }
       
       // If not found or error, try to create a default profile if logged in
       const { data: { session } } = await supabase.auth.getSession();
@@ -725,6 +745,7 @@ export async function getProfile(): Promise<Profile | null> {
         };
         // Use a background update to not block
         updateProfile(defaultProfile).catch(console.error);
+        cachedProfile = defaultProfile;
         return defaultProfile;
       }
 
@@ -737,13 +758,15 @@ export async function getProfile(): Promise<Profile | null> {
   }
   
   if (typeof window !== 'undefined') {
-    return {
+    const p = {
       id: userId,
       display_name: localStorage.getItem('biblia_ai_name') || '',
       photo_url: localStorage.getItem('biblia_ai_photo') || null,
       goals: localStorage.getItem('biblia_ai_goals') || '',
       is_contributor: localStorage.getItem('biblia_ai_is_contributor') === 'true'
     };
+    cachedProfile = p;
+    return p;
   }
   return null;
 }
@@ -752,6 +775,13 @@ export async function updateProfile(profile: Partial<Profile>) {
   const userId = await getUserId();
   console.log('updateProfile called for userId:', userId, 'with profile:', profile);
   
+  // Update cache
+  if (cachedProfile) {
+    cachedProfile = { ...cachedProfile, ...profile };
+  } else {
+    cachedProfile = profile as Profile;
+  }
+
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -1012,8 +1042,10 @@ export async function saveVerseOfTheDayForDate(date: string, verse: { reference:
 }
 
 export async function getVerseHistory(): Promise<string[]> {
+  if (cachedVerseHistory) return cachedVerseHistory;
   const userId = await getUserId();
   
+  let history: string[] = [];
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -1021,16 +1053,20 @@ export async function getVerseHistory(): Promise<string[]> {
         .select('date')
         .eq('user_id', userId);
         
-      if (!error && data) return data.map(d => d.date);
+      if (!error && data) {
+        history = data.map(d => d.date);
+      }
     } catch (e) {
       console.error('Supabase error', e);
     }
   }
   
-  if (typeof window !== 'undefined') {
-    return JSON.parse(localStorage.getItem(`biblia_ai_verse_history_${userId}`) || '[]');
+  if (history.length === 0 && typeof window !== 'undefined') {
+    history = JSON.parse(localStorage.getItem(`biblia_ai_verse_history_${userId}`) || '[]');
   }
-  return [];
+  
+  cachedVerseHistory = history;
+  return history;
 }
 
 export interface Verse {

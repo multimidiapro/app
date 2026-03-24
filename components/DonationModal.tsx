@@ -1,30 +1,16 @@
 'use client';
-import { useState } from 'react';
-import { X, Heart } from 'lucide-react';
-import { initMercadoPago, Payment } from '@mercadopago/sdk-react';
+import { X, Heart, MessageCircle } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-
-// Initialize Mercado Pago
-if (process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
-  initMercadoPago(process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY);
-}
 
 export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { user } = useAuth();
-  const [amount, setAmount] = useState('');
-  const [frequency, setFrequency] = useState<'once' | 'monthly'>('once');
-  const [paymentReady, setPaymentReady] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleDonate = () => {
-    if (!process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY) {
-      alert('Configuração de pagamento ausente. Por favor, contate o suporte.');
-      return;
-    }
-    if (amount) {
-      setPaymentReady(true);
-    }
+  const handleWhatsAppClick = () => {
+    const message = encodeURIComponent("Olá! Tenho interesse em ofertar ou contribuir com o aplicativo iABiblia.");
+    window.open(`https://wa.me/5562994581066?text=${message}`, '_blank');
+    onClose();
   };
 
   return (
@@ -40,78 +26,17 @@ export function DonationModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
           </button>
         </header>
         
-        {!paymentReady ? (
-          <>
-            <p className="text-sm text-muted-foreground mb-4">
-              Sua contribuição ajuda a manter o aplicativo funcionando. Escolha o valor e a frequência.
-            </p>
-            <div className="mb-4">
-              <label className="text-xs font-medium text-muted-foreground">Valor (R$)</label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="w-full p-3 bg-secondary rounded-lg border border-border focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="0,00"
-              />
-            </div>
-            <div className="flex gap-2 mb-6">
-              <button
-                onClick={() => setFrequency('once')}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg ${frequency === 'once' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
-              >
-                Uma vez
-              </button>
-              <button
-                onClick={() => setFrequency('monthly')}
-                className={`flex-1 py-2 text-sm font-medium rounded-lg ${frequency === 'monthly' ? 'bg-primary text-primary-foreground' : 'bg-secondary'}`}
-              >
-                Mensal
-              </button>
-            </div>
-            <button
-              onClick={handleDonate}
-              disabled={!amount}
-              className="w-full py-2 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 disabled:opacity-50"
-            >
-              Continuar para pagamento
-            </button>
-          </>
-        ) : (
-          <Payment
-            initialization={{ amount: Number(amount) }}
-            customization={{ 
-              paymentMethods: { creditCard: 'all', bankTransfer: 'all' },
-              visual: {
-                style: {
-                  theme: 'dark'
-                }
-              }
-            }}
-            onSubmit={async (param) => {
-              try {
-                const response = await fetch('/api/process-payment', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    paymentData: { ...param, amount }, 
-                    userId: user?.id 
-                  }),
-                });
-                const data = await response.json();
-                if (data.status === 'approved') {
-                  alert('Pagamento aprovado! Obrigado por contribuir.');
-                } else {
-                  alert('Pagamento processado. Status: ' + data.status);
-                }
-              } catch (error) {
-                console.error('Payment error:', error);
-                alert('Erro ao processar pagamento.');
-              }
-              onClose();
-            }}
-          />
-        )}
+        <p className="text-sm text-muted-foreground mb-6">
+          Sua contribuição ajuda a manter o aplicativo funcionando. Clique abaixo para falar comigo pelo WhatsApp e realizar sua oferta. Ficarei feliz em orar por você!
+        </p>
+        
+        <button
+          onClick={handleWhatsAppClick}
+          className="w-full py-3 bg-[#25D366] text-white rounded-lg font-medium hover:bg-[#128C7E] transition-colors flex items-center justify-center gap-2"
+        >
+          <MessageCircle size={20} />
+          Falar no WhatsApp
+        </button>
       </div>
     </div>
   );
