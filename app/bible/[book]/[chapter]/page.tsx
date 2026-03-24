@@ -468,7 +468,7 @@ export default function ChapterPage() {
             </button>
           </header>
 
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+          <div className="flex-1 overflow-y-auto min-h-0 p-6 flex flex-col gap-6">
             <div className="bg-secondary p-5 rounded-2xl border border-border">
               <p className="font-bold text-primary mb-2">
                 {selectedReference}

@@ -163,24 +163,24 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
       )}
 
       {showGallery && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-card w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="p-4 border-b border-border flex items-center justify-between bg-secondary/30">
-              <h3 className="font-bold text-lg flex items-center gap-2">
-                <ImageIcon size={20} className="text-primary" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-2 md:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-card w-full max-w-lg rounded-2xl md:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95dvh] md:max-h-[90vh]">
+            <div className="p-3 md:p-4 border-b border-border flex items-center justify-between bg-secondary/30">
+              <h3 className="font-bold text-base md:text-lg flex items-center gap-2">
+                <ImageIcon size={18} className="text-primary" />
                 Personalizar Imagem
               </h3>
-              <button onClick={() => setShowGallery(false)} className="p-2 hover:bg-secondary rounded-full transition-colors">
-                <X size={20} />
+              <button onClick={() => setShowGallery(false)} className="p-1.5 md:p-2 hover:bg-secondary rounded-full transition-colors">
+                <X size={18} />
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
-              {/* Preview Area (Hidden from DOM but used for generation) */}
+            <div className="flex-1 overflow-y-auto min-h-0 p-4 md:p-6 flex flex-col gap-4 md:gap-6">
+              {/* Preview Area */}
               <div className="flex justify-center">
                 <div 
                   ref={cardRef}
-                  className="w-[300px] h-[300px] relative overflow-hidden rounded-2xl shadow-lg bg-zinc-900 flex items-center justify-center p-8 text-center"
+                  className="w-full max-w-[300px] aspect-square relative overflow-hidden rounded-xl md:rounded-2xl shadow-lg bg-zinc-900 flex items-center justify-center p-6 md:p-8 text-center"
                   style={{
                     backgroundImage: currentBg ? `url(${currentBg})` : 'none',
                     backgroundSize: 'cover',
@@ -190,14 +190,14 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
                   {/* Overlay for readability */}
                   <div className="absolute inset-0 bg-black/30" />
                   
-                  <div className="relative z-10 flex flex-col gap-4">
-                    <p className="font-serif text-lg md:text-xl text-white leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                  <div className="relative z-10 flex flex-col gap-2 md:gap-4">
+                    <p className="font-serif text-base md:text-xl text-white leading-relaxed drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
                       &ldquo;{text}&rdquo;
                     </p>
-                    <p className="font-outfit text-sm font-bold text-white/90 uppercase tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                    <p className="font-outfit text-xs md:text-sm font-bold text-white/90 uppercase tracking-widest drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
                       {reference}
                     </p>
-                    <div className="mt-2 text-[10px] text-white/60 font-medium tracking-tighter uppercase">
+                    <div className="mt-1 md:mt-2 text-[8px] md:text-[10px] text-white/60 font-medium tracking-tighter uppercase">
                       IA Bíblia • A Bíblia explica a Bíblia
                     </div>
                   </div>
@@ -207,15 +207,15 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
               {/* Gallery Selection */}
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Templates</span>
-                  <label className="text-xs font-bold text-primary hover:underline cursor-pointer flex items-center gap-1">
+                  <span className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-wider">Templates</span>
+                  <label className="text-[10px] md:text-xs font-bold text-primary hover:underline cursor-pointer flex items-center gap-1">
                     <Upload size={12} />
                     Usar Minha Foto
                     <input type="file" accept="image/*" className="hidden" onChange={handleFileUpload} />
                   </label>
                 </div>
                 
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-4 gap-2">
                   {templates.map((t) => (
                     <button
                       key={t.id}
@@ -223,7 +223,7 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
                         setSelectedBg(t.url);
                         setCustomBg(null);
                       }}
-                      className={`aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                      className={`aspect-square rounded-lg md:rounded-xl overflow-hidden border-2 transition-all ${
                         selectedBg === t.url ? 'border-primary scale-95' : 'border-transparent hover:border-primary/50'
                       }`}
                     >
@@ -233,7 +233,7 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
                   {customBg && (
                     <button
                       onClick={() => setSelectedBg(null)}
-                      className={`aspect-square rounded-xl overflow-hidden border-2 border-primary scale-95`}
+                      className={`aspect-square rounded-lg md:rounded-xl overflow-hidden border-2 border-primary scale-95`}
                     >
                       <img src={customBg} alt="Custom" className="w-full h-full object-cover" />
                     </button>
@@ -242,21 +242,21 @@ export function ShareVerse({ text, reference, bookId, chapter, verse, className 
               </div>
             </div>
 
-            <div className="p-6 border-t border-border bg-secondary/20 grid grid-cols-2 gap-4">
+            <div className="p-4 md:p-6 border-t border-border bg-secondary/20 grid grid-cols-2 gap-3 md:gap-4">
               <button
                 onClick={handleDownload}
                 disabled={isDownloading}
-                className="flex items-center justify-center gap-2 py-3 bg-secondary text-foreground rounded-2xl font-bold hover:bg-secondary/80 transition-colors disabled:opacity-50"
+                className="flex items-center justify-center gap-2 py-2.5 md:py-3 bg-secondary text-foreground rounded-xl md:rounded-2xl text-sm md:text-base font-bold hover:bg-secondary/80 transition-colors disabled:opacity-50"
               >
-                {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                {isDownloading ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
                 Baixar
               </button>
               <button
                 onClick={handleShare}
                 disabled={isSharing}
-                className="flex items-center justify-center gap-2 py-3 bg-primary text-primary-foreground rounded-2xl font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50"
+                className="flex items-center justify-center gap-2 py-2.5 md:py-3 bg-primary text-primary-foreground rounded-xl md:rounded-2xl text-sm md:text-base font-bold hover:bg-primary/90 transition-colors shadow-lg shadow-primary/20 disabled:opacity-50"
               >
-                {isSharing ? <Loader2 size={18} className="animate-spin" /> : <Share2 size={18} />}
+                {isSharing ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
                 Compartilhar
               </button>
             </div>
